@@ -6,6 +6,7 @@ export interface MarketingStrategyJson {
   threeUniques?: string[];
   provenProcess?: string;
   guarantee?: string;
+  [key: string]: string | string[] | undefined;
 }
 
 export interface ThreeYearPictureJson {
@@ -14,6 +15,7 @@ export interface ThreeYearPictureJson {
   profit?: string;
   measurables?: string[];
   lookLikeStatements?: string[];
+  [key: string]: string | string[] | undefined;
 }
 
 export interface OneYearPlanJson {
@@ -23,6 +25,7 @@ export interface OneYearPlanJson {
   measurables?: string[];
   goals?: string[];
   companyRockIds?: string[];
+  [key: string]: string | string[] | undefined;
 }
 
 export interface UpsertVTOInput {
