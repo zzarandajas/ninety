@@ -19,8 +19,6 @@ const updateMeetingSchema = z.object({
   meetingDate: z.coerce.date().optional(),
   facilitatorUserId: z.string().min(1).optional(),
   status: meetingStatusEnum.optional(),
-  segueNotes: z.string().nullable().optional(),
-  headlines: z.string().nullable().optional(),
   timerStartedAt: z.coerce.date().nullable().optional(),
   timerAccumulatedSeconds: z.number().int().optional(),
   timerIsPaused: z.boolean().optional(),
@@ -30,6 +28,10 @@ const updateMeetingSchema = z.object({
   segueNotes: z.string().nullable().optional(),
   headlines: z.string().nullable().optional(),
   concludeNotes: z.string().nullable().optional(),
+});
+
+const listMeetingsQuerySchema = z.object({
+  status: meetingStatusEnum.optional(),
 });
 
 const closeMeetingSchema = z.object({

@@ -2177,7 +2177,8 @@ export function RockFormModal({ open, rock, members, onClose, onSaved }: RockFor
   }
 
   return (
-    <Modal open={open} onCancel={onClose} footer={null} title={rock ? 'Editar Rock' : 'Nuevo Rock'} destroyOnClose>
+    <Modal open={open} onCancel={onClose} footer={null} title={rock ? 'Editar Rock' : 'Nuevo Rock'}           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
+>
       <Form form={form} layout="vertical" onFinish={handleSubmit}>
         <Form.Item name="title" label="Título" rules={[{ required: true, message: 'Introduce un título' }]}>
           <Input />

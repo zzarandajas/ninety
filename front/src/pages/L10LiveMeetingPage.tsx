@@ -1,22 +1,5 @@
-import {
-  CalendarOutlined,
-  CheckCircleOutlined,
-  CheckSquareOutlined,
-  CloseCircleOutlined,
-  DeleteOutlined,
-  EditOutlined,
-  ExperimentOutlined,
-  FlagOutlined,
-  LineChartOutlined,
-  PauseCircleOutlined,
-  PlayCircleOutlined,
-  PlusOutlined,
-  RocketOutlined,
-  SendOutlined,
-  SmileOutlined,
-  StopOutlined,
-} from '@ant-design/icons';
-import { Button, Card, Col, Input, InputNumber, List, Modal, Progress, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
+import * as Icons from '@ant-design/icons';
+import { Button, Card, Col, Input, InputNumber,  Modal, Progress, Radio, Row, Select, Space, Table, Tag, Typography, message } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
@@ -28,7 +11,7 @@ import { evaluateGoal } from '../lib/evaluateGoal';
 import { issuesApi, type Issue, type IssueStatus } from '../lib/issuesApi';
 import { l10Api, type L10AgendaItemLog, type L10Meeting, type MeetingRating } from '../lib/l10Api';
 import { rocksApi, type Rock } from '../lib/rocksApi';
-import { scorecardApi, type ScorecardEntry, type ScorecardMetric } from '../lib/scorecardApi';
+import { scorecardApi, type MetricFrequency, type ScorecardEntry, type ScorecardMetric } from '../lib/scorecardApi';
 import { tenantApi, type TenantMember } from '../lib/tenantApi';
 import { todosApi, type Todo } from '../lib/todosApi';
 import { useAuthStore } from '../store/authStore';
@@ -36,14 +19,14 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 type Section = 'segue' | 'scorecard' | 'rocks' | 'headlines' | 'todos' | 'ids' | 'conclude';
 
-const SECTIONS_CONFIG: { id: Section; label: string; minutes: number; icon: ReactNode }[] = [
-  { id: 'segue', label: 'Segue', minutes: 5, icon: <SmileOutlined /> },
-  { id: 'scorecard', label: 'Scorecard', minutes: 5, icon: <LineChartOutlined /> },
-  { id: 'rocks', label: 'Rock Review', minutes: 5, icon: <RocketOutlined /> },
-  { id: 'headlines', label: 'Headlines', minutes: 5, icon: <CheckSquareOutlined /> },
-  { id: 'todos', label: 'To-Do List', minutes: 5, icon: <CheckSquareOutlined /> },
-  { id: 'ids', label: 'IDS', minutes: 60, icon: <ExperimentOutlined /> },
-  { id: 'conclude', label: 'Conclude', minutes: 5, icon: <FlagOutlined /> },
+export const SECTIONS_CONFIG: { id: Section; label: string; minutes: number; icon: ReactNode }[] = [
+  { id: 'segue', label: 'Segue', minutes: 5, icon: <Icons.SmileOutlined /> },
+  { id: 'scorecard', label: 'Scorecard', minutes: 5, icon: <Icons.LineChartOutlined /> },
+  { id: 'rocks', label: 'Rock Review', minutes: 5, icon: <Icons.RocketOutlined /> },
+  { id: 'headlines', label: 'Headlines', minutes: 5, icon: <Icons.CheckSquareOutlined /> },
+  { id: 'todos', label: 'To-Do List', minutes: 5, icon: <Icons.CheckSquareOutlined /> },
+  { id: 'ids', label: 'IDS', minutes: 60, icon: <Icons.ExperimentOutlined /> },
+  { id: 'conclude', label: 'Conclude', minutes: 5, icon: <Icons.FlagOutlined /> },
 ];
 
 const ISSUE_STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
@@ -89,6 +72,7 @@ export function L10LiveMeetingPage() {
   const [memberRatingsDraft, setMemberRatingsDraft] = useState<Record<string, number | null>>({});
   const [concludeNotesDraft, setConcludeNotesDraft] = useState('');
   const [rockFilter, setRockFilter] = useState<'all' | 'company' | 'personal'>('all');
+  const [metricFilter, setMetricFilter] = useState<MetricFrequency | 'all'>('all');
   const [endMeetingModalOpen, setEndMeetingModalOpen] = useState(false);
   const [timerInitialized, setTimerInitialized] = useState(false);
 
@@ -380,12 +364,17 @@ export function L10LiveMeetingPage() {
     return true;
   });
 
+  const filteredMetrics = metrics.filter((m) => {
+    if (metricFilter === 'all') return true;
+    return m.frequency === metricFilter;
+  });
+
   const isPaused = meeting.timerIsPaused || !meeting.timerStartedAt;
 
   return (
     <Template
       title="Reunión L10"
-      icon={<CalendarOutlined />}
+      icon={<Icons.CalendarOutlined />}
       subtitle="Sesión en directo de la L10: agenda, timer y notas por sección."
     >
       <div style={{ display: 'flex', gap: 24, alignItems: 'flex-start', position: 'relative' }}>
@@ -399,7 +388,7 @@ export function L10LiveMeetingPage() {
           gap: 20,
           zIndex: 10
         }}>
-          <Card className="glass-panel" bodyStyle={{ padding: 16 }}>
+          <Card className="glass-panel" styles={{body:{ padding: 16} }}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
               <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block', textTransform: 'uppercase', letterSpacing: 1 }}>
                 Tiempo total reunión
@@ -422,7 +411,7 @@ export function L10LiveMeetingPage() {
                 <Button 
                   block
                   type={isPaused ? 'primary' : 'default'}
-                  icon={isPaused ? <PlayCircleOutlined /> : <PauseCircleOutlined />} 
+                  icon={isPaused ? <Icons.PlayCircleOutlined /> : <Icons.PauseCircleOutlined />} 
                   onClick={toggleTimer}
                 >
                   {isPaused ? (!meeting.timerStartedAt ? 'Iniciar' : 'Reanudar') : 'Pausar'}
@@ -431,7 +420,7 @@ export function L10LiveMeetingPage() {
                   <Button
                     block
                     danger
-                    icon={<StopOutlined />}
+                    icon={<Icons.StopOutlined />}
                     onClick={() => setEndMeetingModalOpen(true)}
                   >
                     Terminar reunión
@@ -496,13 +485,17 @@ export function L10LiveMeetingPage() {
 
         {/* CONTENIDO PRINCIPAL */}
         <div style={{ flex: 1, minWidth: 0 }}>
-          {/* 1. SEGUE */}
           <div id="section-segue" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
-              title="Segue"
+              title={SECTIONS_CONFIG[0].label}
+              icon={SECTIONS_CONFIG[0].icon}
               targetMinutes={5}
               active={activeSection === 'segue'}
-              onActivate={() => setActiveSection('segue')}
+              onActivate={() => changeSection('segue')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'segue' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'segue' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
               description="Buenas noticias personales y profesionales de la semana. Transición mental para conectar al equipo y enfocar la energía antes de revisar métricas."
             >
               <Input.TextArea
@@ -517,17 +510,29 @@ export function L10LiveMeetingPage() {
           {/* 2. SCORECARD */}
           <div id="section-scorecard" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
-              title="Scorecard"
+              title={SECTIONS_CONFIG[1].label}
+              icon={SECTIONS_CONFIG[1].icon}
               targetMinutes={5}
               active={activeSection === 'scorecard'}
-              onActivate={() => setActiveSection('scorecard')}
-              description="Revisión rápida de métricas semanales clave. Indicar sólo 'En objetivo' o 'Fuera de objetivo'. No justificar ni discutir aquí; si un número falla, enviar a IDS."
+              onActivate={() => changeSection('scorecard')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'scorecard' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'scorecard' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Revisión rápida de métricas clave. Indicar sólo 'En objetivo' o 'Fuera de objetivo'. No justificar ni discutir aquí; si un número falla, enviar a IDS."
             >
+              <div style={{ marginBottom: 12 }}>
+                <Radio.Group value={metricFilter} onChange={(e) => setMetricFilter(e.target.value)} size="small">
+                  <Radio.Button value="all">Todas</Radio.Button>
+                  <Radio.Button value="weekly">Semanales</Radio.Button>
+                  <Radio.Button value="monthly">Mensuales</Radio.Button>
+                </Radio.Group>
+              </div>
               <Table
                 className="glass-panel"
                 pagination={false}
                 size="small"
-                dataSource={metrics}
+                dataSource={filteredMetrics}
                 rowKey="id"
                 columns={[
                   {
@@ -535,7 +540,15 @@ export function L10LiveMeetingPage() {
                     dataIndex: 'name',
                     key: 'name',
                     sorter: (a, b) => a.name.localeCompare(b.name),
-                    render: (name) => <Typography.Text strong>{name}</Typography.Text>
+                    render: (name, record) => (
+                      <Space>
+                        <Icons.BarChartOutlined style={{ color: 'var(--brand-green)' }} />
+                        <Typography.Text strong>{name}</Typography.Text>
+                        <Tag style={{ fontSize: 9, lineHeight: '14px', height: 16 }}>
+                          {record.frequency === 'weekly' ? 'S' : 'M'}
+                        </Tag>
+                      </Space>
+                    )
                   },
                   {
                     title: 'Objetivo',
@@ -559,7 +572,7 @@ export function L10LiveMeetingPage() {
                       const status = evaluateGoal(entry?.actualValue ?? null, record.goalValue, record.comparison);
                       return (
                         <Tag 
-                          icon={status === 'met' ? <CheckCircleOutlined /> : status === 'missed' ? <CloseCircleOutlined /> : undefined}
+                          icon={status === 'met' ? <Icons.CheckCircleOutlined /> : status === 'missed' ? <Icons.CloseCircleOutlined /> : undefined}
                           color={status === 'met' ? 'green' : status === 'missed' ? 'red' : 'default'}
                         >
                           {status === 'met' ? 'En objetivo' : status === 'missed' ? 'Fuera de objetivo' : 'Sin datos'}
@@ -585,7 +598,7 @@ export function L10LiveMeetingPage() {
                         <Button
                           size="small"
                           danger={status === 'missed'}
-                          icon={<SendOutlined />}
+                          icon={<Icons.SendOutlined />}
                           onClick={() =>
                             dropToIDS(
                               `Scorecard: ${record.name} fuera de objetivo`,
@@ -606,10 +619,15 @@ export function L10LiveMeetingPage() {
           {/* 3. ROCK REVIEW */}
           <div id="section-rocks" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
-              title="Rock Review"
+              title={SECTIONS_CONFIG[2].label}
+              icon={SECTIONS_CONFIG[2].icon}
               targetMinutes={5}
               active={activeSection === 'rocks'}
-              onActivate={() => setActiveSection('rocks')}
+              onActivate={() => changeSection('rocks')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'rocks' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'rocks' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
               description="Revisar estado de Rocks de Empresa y Personales del trimestre ('On Track' / 'Off Track'). Si un Rock está Off-track, enviar a IDS para analizar y solucionar bloqueos."
             >
               <div style={{ marginBottom: 16 }}>
@@ -693,7 +711,7 @@ export function L10LiveMeetingPage() {
                         <Button
                           size="small"
                           danger={isOffTrack}
-                          icon={<SendOutlined />}
+                          icon={<Icons.SendOutlined />}
                           onClick={() =>
                             dropToIDS(`Rock off-track: ${record.title}`, `Rock de ${record.isCompanyRock ? 'Empresa' : 'Personal'} desviado. Owner: ${owner?.fullName ?? 'Sin owner'}`)
                           }
@@ -717,7 +735,7 @@ export function L10LiveMeetingPage() {
                             onChange={(e) => setRockNoteDrafts((prev) => ({ ...prev, [record.id]: e.target.value }))}
                             onPressEnter={() => logRockNote(record.id)}
                           />
-                          <Button size="small" icon={<PlusOutlined />} onClick={() => logRockNote(record.id)} />
+                          <Button size="small" icon={<Icons.PlusOutlined />} onClick={() => logRockNote(record.id)} />
                         </div>
                         {logsFor('rock_review', record.id).length > 0 && (
                           <div style={{ maxHeight: 60, overflowY: 'auto', fontSize: 11, background: 'rgba(0,0,0,0.02)', padding: '2px 6px', borderRadius: 4 }}>
@@ -737,10 +755,15 @@ export function L10LiveMeetingPage() {
           {/* 4. HEADLINES */}
           <div id="section-headlines" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
-              title="Headlines"
+              title={SECTIONS_CONFIG[3].label}
+              icon={SECTIONS_CONFIG[3].icon}
               targetMinutes={5}
               active={activeSection === 'headlines'}
-              onActivate={() => setActiveSection('headlines')}
+              onActivate={() => changeSection('headlines')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'headlines' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'headlines' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
               description="Titulares breves sobre clientes, empleados u organización. Si un titular requiere debate o solución formal, convertirlo en un Issue para IDS."
             >
               <Input.TextArea
@@ -753,7 +776,7 @@ export function L10LiveMeetingPage() {
                 <div style={{ marginTop: 8 }}>
                   <Button
                     size="small"
-                    icon={<SendOutlined />}
+                    icon={<Icons.SendOutlined />}
                     onClick={() => dropToIDS(`Titular a tratar: ${meeting.headlines?.slice(0, 50)}...`, meeting.headlines ?? undefined)}
                   >
                     + Convertir Titular en Issue
@@ -766,14 +789,19 @@ export function L10LiveMeetingPage() {
           {/* 5. TO-DO LIST */}
           <div id="section-todos" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
-              title="To-Do List"
+              title={SECTIONS_CONFIG[4].label}
+              icon={SECTIONS_CONFIG[4].icon}
               targetMinutes={5}
               active={activeSection === 'todos'}
-              onActivate={() => setActiveSection('todos')}
+              onActivate={() => changeSection('todos')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'todos' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'todos' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
               description="Revisión de compromisos a 7 días creados en reuniones previas. 'Hecho' o 'No hecho'. El objetivo del equipo es mantener un nivel de cumplimiento >90%."
             >
               <div style={{ marginBottom: 12 }}>
-                <Button icon={<PlusOutlined />} onClick={() => setCreatingTodo(true)}>
+                <Button icon={<Icons.PlusOutlined />} onClick={() => setCreatingTodo(true)}>
                   Nuevo to-do
                 </Button>
               </div>
@@ -820,7 +848,7 @@ export function L10LiveMeetingPage() {
                       return (
                         <Button
                           size="small"
-                          icon={<SendOutlined />}
+                          icon={<Icons.SendOutlined />}
                           onClick={() => dropToIDS(`To-Do no completado: ${record.title}`, `Owner: ${owner?.fullName ?? 'Sin asignado'}`)}
                         >
                           + IDS
@@ -836,10 +864,15 @@ export function L10LiveMeetingPage() {
           {/* 6. IDS (IDENTIFY, DISCUSS, SOLVE) */}
           <div id="section-ids" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
-              title="IDS"
+              title={SECTIONS_CONFIG[5].label}
+              icon={SECTIONS_CONFIG[5].icon}
               targetMinutes={60}
               active={activeSection === 'ids'}
-              onActivate={() => setActiveSection('ids')}
+              onActivate={() => changeSection('ids')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'ids' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'ids' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
               description="Core de la reunión L10 (60 min). Priorizar los Top 3 issues. 1) Identificar la causa raíz real, 2) Discutir soluciones de forma concisa, 3) Resolver creando To-Dos concretos."
             >
               <Table
@@ -856,7 +889,10 @@ export function L10LiveMeetingPage() {
                     sorter: (a, b) => a.title.localeCompare(b.title),
                     render: (title, record) => (
                       <div>
-                        <Typography.Text strong style={{ fontSize: 14 }}>{title}</Typography.Text>
+                        <Space size="small">
+                          <Icons.ExclamationCircleOutlined style={{ color: 'var(--brand-green)' }} />
+                          <Typography.Text strong style={{ fontSize: 14 }}>{title}</Typography.Text>
+                        </Space>
                         {record.description && (
                           <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
                             {record.description}
@@ -905,7 +941,7 @@ export function L10LiveMeetingPage() {
                         size="small"
                         type="primary"
                         ghost
-                        icon={<PlusOutlined />}
+                        icon={<Icons.PlusOutlined />}
                         onClick={() => setCreatingTodo(true)}
                       >
                         + To-Do
@@ -926,7 +962,7 @@ export function L10LiveMeetingPage() {
                             onChange={(e) => setIssueNoteDrafts((prev) => ({ ...prev, [record.id]: e.target.value }))}
                             onPressEnter={() => logIssueNote(record.id)}
                           />
-                          <Button size="small" icon={<PlusOutlined />} onClick={() => logIssueNote(record.id)} />
+                          <Button size="small" icon={<Icons.PlusOutlined />} onClick={() => logIssueNote(record.id)} />
                         </div>
                         {logsFor('issue', record.id).length > 0 && (
                           <div style={{ maxHeight: 60, overflowY: 'auto', fontSize: 11, background: 'rgba(0,0,0,0.02)', padding: '2px 6px', borderRadius: 4 }}>
@@ -946,10 +982,15 @@ export function L10LiveMeetingPage() {
           {/* 7. CONCLUDE */}
           <div id="section-conclude" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
-              title="Conclude"
+              title={SECTIONS_CONFIG[6].label}
+              icon={SECTIONS_CONFIG[6].icon}
               targetMinutes={5}
               active={activeSection === 'conclude'}
-              onActivate={() => setActiveSection('conclude')}
+              onActivate={() => changeSection('conclude')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'conclude' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'conclude' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
               description="Cierre impecable: 1) Recapitular To-Dos nuevos creados, 2) Mensajes en cascada para la organización, 3) Cada miembro califica la reunión del 1 al 10 (apuntar a media > 8)."
             >
               <Row gutter={24}>
@@ -969,7 +1010,7 @@ export function L10LiveMeetingPage() {
                     <Button
                       type="primary"
                       size="large"
-                      icon={<CheckCircleOutlined />}
+                      icon={<Icons.CheckCircleOutlined />}
                       disabled={meeting.status === 'completed'}
                       onClick={() => setEndMeetingModalOpen(true)}
                     >
@@ -1052,7 +1093,8 @@ export function L10LiveMeetingPage() {
         open={endMeetingModalOpen}
         onCancel={() => setEndMeetingModalOpen(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden 
+
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
           <Typography.Paragraph type="secondary" style={{ margin: 0 }}>
@@ -1077,7 +1119,7 @@ export function L10LiveMeetingPage() {
             <Button
               type="primary"
               danger
-              icon={<CheckCircleOutlined />}
+              icon={<Icons.CheckCircleOutlined />}
               onClick={async () => {
                 await closeMeeting();
                 setEndMeetingModalOpen(false);

@@ -136,7 +136,12 @@ export function IssuesPage() {
       title: 'Título',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string, issue: Issue) => <a onClick={() => setModalIssue(issue)}>{title}</a>,
+      render: (title: string, issue: Issue) => (
+        <Space>
+          <ExclamationCircleOutlined style={{ color: 'var(--brand-green)' }} />
+          <a onClick={() => setModalIssue(issue)}>{title}</a>
+        </Space>
+      ),
     },
     { title: 'Prioridad', dataIndex: 'priority', key: 'priority', render: (p: Issue['priority']) => PRIORITY_LABEL[p] },
     { title: 'Estado', dataIndex: 'status', key: 'status', render: (s: IssueStatus) => <Tag>{STATUS_LABEL[s]}</Tag> },

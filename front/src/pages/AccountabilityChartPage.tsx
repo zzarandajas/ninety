@@ -59,7 +59,7 @@ export function AccountabilityChartPage() {
     Modal.confirm({
       title: 'Resetear organigrama',
       content:
-        'Se eliminarán todos los seats actuales y se restaurará el organigrama EOS inicial (Visionario, Integrador, Ventas/Marketing, Operaciones y Finanzas). Los usuarios asignados serán desvinculados de sus seats. ¿Continuar?',
+        'Se eliminarán todos los seats actuales y se restaurará el organigrama EOS inicial (Visionario, 3 Integradores y sus departamentos). Los usuarios asignados serán desvinculados de sus seats. ¿Continuar?',
       okText: 'Sí, resetear',
       okType: 'danger',
       cancelText: 'Cancelar',

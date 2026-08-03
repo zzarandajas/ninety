@@ -1,0 +1,484 @@
+          {/* 1. SEGUE */}
+          <div id="section-segue" style={{ scrollMarginTop: 24 }}>
+            <AgendaSection
+              title="Segue"
+              targetMinutes={5}
+              active={activeSection === 'segue'}
+              onActivate={() => changeSection('segue')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'segue' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'segue' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Buenas noticias personales y profesionales de la semana. Transición mental para conectar al equipo y enfocar la energía antes de revisar métricas."
+            >
+              <Input.TextArea
+                rows={3}
+                placeholder="Notas de segue (1 buena noticia personal y 1 profesional por asistente)"
+                defaultValue={meeting.segueNotes ?? ''}
+                onBlur={(e) => saveSegueNotes(e.target.value)}
+              />
+            </AgendaSection>
+          </div>
+
+          {/* 2. SCORECARD */}
+          <div id="section-scorecard" style={{ scrollMarginTop: 24 }}>
+            <AgendaSection
+              title="Scorecard"
+              targetMinutes={5}
+              active={activeSection === 'scorecard'}
+              onActivate={() => changeSection('scorecard')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'scorecard' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'scorecard' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Revisión rápida de métricas semanales clave. Indicar sólo 'En objetivo' o 'Fuera de objetivo'. No justificar ni discutir aquí; si un número falla, enviar a IDS."
+            >
+              <Table
+                className="glass-panel"
+                pagination={false}
+                size="small"
+                dataSource={metrics}
+                rowKey="id"
+                columns={[
+                  {
+                    title: 'Métrica',
+                    dataIndex: 'name',
+                    key: 'name',
+                    sorter: (a, b) => a.name.localeCompare(b.name),
+                    render: (name) => <Typography.Text strong>{name}</Typography.Text>
+                  },
+                  {
+                    title: 'Objetivo',
+                    key: 'goal',
+                    sorter: (a, b) => a.goalValue - b.goalValue,
+                    render: (_, record) => <Typography.Text type="secondary">{record.goalValue} {record.unit}</Typography.Text>
+                  },
+                  {
+                    title: 'Estado',
+                    key: 'status',
+                    filters: [
+                      { text: 'En objetivo', value: 'met' },
+                      { text: 'Fuera de objetivo', value: 'missed' },
+                    ],
+                    onFilter: (value, record) => {
+                      const entry = latestEntryFor(record.id);
+                      return evaluateGoal(entry?.actualValue ?? null, record.goalValue, record.comparison) === value;
+                    },
+                    render: (_, record) => {
+                      const entry = latestEntryFor(record.id);
+                      const status = evaluateGoal(entry?.actualValue ?? null, record.goalValue, record.comparison);
+                      return (
+                        <Tag 
+                          icon={status === 'met' ? <CheckCircleOutlined /> : status === 'missed' ? <CloseCircleOutlined /> : undefined}
+                          color={status === 'met' ? 'green' : status === 'missed' ? 'red' : 'default'}
+                        >
+                          {status === 'met' ? 'En objetivo' : status === 'missed' ? 'Fuera de objetivo' : 'Sin datos'}
+                        </Tag>
+                      );
+                    }
+                  },
+                  {
+                    title: 'Valor Actual',
+                    key: 'current',
+                    render: (_, record) => {
+                      const entry = latestEntryFor(record.id);
+                      return <span>{entry ? entry.actualValue : '—'} {record.unit}</span>;
+                    }
+                  },
+                  {
+                    title: 'Acciones',
+                    key: 'actions',
+                    render: (_, record) => {
+                      const entry = latestEntryFor(record.id);
+                      const status = evaluateGoal(entry?.actualValue ?? null, record.goalValue, record.comparison);
+                      return (
+                        <Button
+                          size="small"
+                          danger={status === 'missed'}
+                          icon={<SendOutlined />}
+                          onClick={() =>
+                            dropToIDS(
+                              `Scorecard: ${record.name} fuera de objetivo`,
+                              `Métrica ${record.name}: valor actual ${entry?.actualValue ?? '—'} vs objetivo ${record.goalValue} ${record.unit}`
+                            )
+                          }
+                        >
+                          + IDS
+                        </Button>
+                      );
+                    }
+                  }
+                ]}
+              />
+            </AgendaSection>
+          </div>
+
+          {/* 3. ROCK REVIEW */}
+          <div id="section-rocks" style={{ scrollMarginTop: 24 }}>
+            <AgendaSection
+              title="Rock Review"
+              targetMinutes={5}
+              active={activeSection === 'rocks'}
+              onActivate={() => changeSection('rocks')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'rocks' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'rocks' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Revisar estado de Rocks de Empresa y Personales del trimestre ('On Track' / 'Off Track'). Si un Rock está Off-track, enviar a IDS para analizar y solucionar bloqueos."
+            >
+              <div style={{ marginBottom: 16 }}>
+                <Space wrap align="center">
+                  <Typography.Text style={{ fontSize: 13, fontWeight: 600 }}>Filtrar Rocks:</Typography.Text>
+                  <Select
+                    size="small"
+                    value={rockFilter}
+                    onChange={setRockFilter}
+                    style={{ width: 170 }}
+                    options={[
+                      { value: 'all', label: 'Todos los Rocks' },
+                      { value: 'company', label: '🏢 Rocks de Empresa' },
+                      { value: 'personal', label: '👤 Rocks Personales' },
+                    ]}
+                  />
+                </Space>
+              </div>
+
+              <Table
+                className="glass-panel"
+                pagination={false}
+                size="small"
+                dataSource={filteredRocks}
+                rowKey="id"
+                columns={[
+                  {
+                    title: 'Rock',
+                    dataIndex: 'title',
+                    key: 'title',
+                    sorter: (a, b) => a.title.localeCompare(b.title),
+                    render: (title) => <Typography.Text strong>{title}</Typography.Text>
+                  },
+                  {
+                    title: 'Tipo',
+                    key: 'type',
+                    filters: [
+                      { text: 'Empresa', value: true },
+                      { text: 'Personal', value: false },
+                    ],
+                    onFilter: (value, record) => record.isCompanyRock === value,
+                    render: (_, record) => (
+                      <Tag color={record.isCompanyRock ? 'blue' : 'purple'}>
+                        {record.isCompanyRock ? 'Empresa' : 'Personal'}
+                      </Tag>
+                    )
+                  },
+                  {
+                    title: 'Estado',
+                    dataIndex: 'status',
+                    key: 'status',
+                    filters: [
+                      { text: 'On Track', value: 'on_track' },
+                      { text: 'Off Track', value: 'off_track' },
+                      { text: 'Done', value: 'done' },
+                    ],
+                    onFilter: (value, record) => record.status === value,
+                    render: (status) => (
+                      <Tag color={status === 'on_track' ? 'green' : status === 'off_track' ? 'red' : 'blue'}>
+                        {status}
+                      </Tag>
+                    )
+                  },
+                  {
+                    title: 'Owner',
+                    key: 'owner',
+                    filters: members.map(m => ({ text: m.fullName, value: m.userId })),
+                    onFilter: (value, record) => record.ownerUserId === value,
+                    render: (_, record) => {
+                      const owner = members.find((m) => m.userId === record.ownerUserId);
+                      return <MemberCell member={owner} />;
+                    }
+                  },
+                  {
+                    title: 'Acciones',
+                    key: 'actions',
+                    render: (_, record) => {
+                      const isOffTrack = record.status === 'off_track';
+                      const owner = members.find((m) => m.userId === record.ownerUserId);
+                      return (
+                        <Button
+                          size="small"
+                          danger={isOffTrack}
+                          icon={<SendOutlined />}
+                          onClick={() =>
+                            dropToIDS(`Rock off-track: ${record.title}`, `Rock de ${record.isCompanyRock ? 'Empresa' : 'Personal'} desviado. Owner: ${owner?.fullName ?? 'Sin owner'}`)
+                          }
+                        >
+                          + IDS
+                        </Button>
+                      );
+                    }
+                  },
+                  {
+                    title: 'Discusión',
+                    key: 'discussion',
+                    width: 250,
+                    render: (_, record) => (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <Input
+                            size="small"
+                            placeholder="Añadir nota..."
+                            value={rockNoteDrafts[record.id] ?? ''}
+                            onChange={(e) => setRockNoteDrafts((prev) => ({ ...prev, [record.id]: e.target.value }))}
+                            onPressEnter={() => logRockNote(record.id)}
+                          />
+                          <Button size="small" icon={<PlusOutlined />} onClick={() => logRockNote(record.id)} />
+                        </div>
+                        {logsFor('rock_review', record.id).length > 0 && (
+                          <div style={{ maxHeight: 60, overflowY: 'auto', fontSize: 11, background: 'rgba(0,0,0,0.02)', padding: '2px 6px', borderRadius: 4 }}>
+                            {logsFor('rock_review', record.id).map((log) => (
+                              <div key={log.id}>• {log.notes}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                ]}
+              />
+            </AgendaSection>
+          </div>
+
+          {/* 4. HEADLINES */}
+          <div id="section-headlines" style={{ scrollMarginTop: 24 }}>
+            <AgendaSection
+              title="Headlines"
+              targetMinutes={5}
+              active={activeSection === 'headlines'}
+              onActivate={() => changeSection('headlines')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'headlines' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'headlines' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Titulares breves sobre clientes, empleados u organización. Si un titular requiere debate o solución formal, convertirlo en un Issue para IDS."
+            >
+              <Input.TextArea
+                rows={3}
+                placeholder="Titulares de clientes y empleados"
+                defaultValue={meeting.headlines ?? ''}
+                onBlur={(e) => saveHeadlines(e.target.value)}
+              />
+              {meeting.headlines && (
+                <div style={{ marginTop: 8 }}>
+                  <Button
+                    size="small"
+                    icon={<SendOutlined />}
+                    onClick={() => dropToIDS(`Titular a tratar: ${meeting.headlines?.slice(0, 50)}...`, meeting.headlines ?? undefined)}
+                  >
+                    + Convertir Titular en Issue
+                  </Button>
+                </div>
+              )}
+            </AgendaSection>
+          </div>
+
+          {/* 5. TO-DO LIST */}
+          <div id="section-todos" style={{ scrollMarginTop: 24 }}>
+            <AgendaSection
+              title="To-Do List"
+              targetMinutes={5}
+              active={activeSection === 'todos'}
+              onActivate={() => changeSection('todos')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'todos' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'todos' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Revisión de compromisos a 7 días creados en reuniones previas. 'Hecho' o 'No hecho'. El objetivo del equipo es mantener un nivel de cumplimiento >90%."
+            >
+              <div style={{ marginBottom: 12 }}>
+                <Button icon={<PlusOutlined />} onClick={() => setCreatingTodo(true)}>
+                  Nuevo to-do
+                </Button>
+              </div>
+              <Table
+                className="glass-panel"
+                pagination={false}
+                size="small"
+                dataSource={todos}
+                rowKey="id"
+                columns={[
+                  {
+                    title: 'Tarea',
+                    dataIndex: 'title',
+                    key: 'title',
+                    sorter: (a, b) => a.title.localeCompare(b.title),
+                    render: (title, record) => (
+                      <a onClick={() => setEditingTodo(record)} style={{ fontWeight: 600 }}>
+                        {title}
+                      </a>
+                    )
+                  },
+                  {
+                    title: 'Owner',
+                    key: 'owner',
+                    filters: members.map(m => ({ text: m.fullName, value: m.userId })),
+                    onFilter: (value, record) => record.ownerUserId === value,
+                    render: (_, record) => {
+                      const owner = members.find((m) => m.userId === record.ownerUserId);
+                      return <MemberCell member={owner} />;
+                    }
+                  },
+                  {
+                    title: 'Fecha Límite',
+                    dataIndex: 'dueDate',
+                    key: 'dueDate',
+                    sorter: (a, b) => dayjs(a.dueDate).unix() - dayjs(b.dueDate).unix(),
+                    render: (date) => date ? dayjs(date).format('DD/MM/YYYY') : '—'
+                  },
+                  {
+                    title: 'Acciones',
+                    key: 'actions',
+                    render: (_, record) => {
+                      const owner = members.find((m) => m.userId === record.ownerUserId);
+                      return (
+                        <Button
+                          size="small"
+                          icon={<SendOutlined />}
+                          onClick={() => dropToIDS(`To-Do no completado: ${record.title}`, `Owner: ${owner?.fullName ?? 'Sin asignado'}`)}
+                        >
+                          + IDS
+                        </Button>
+                      );
+                    }
+                  }
+                ]}
+              />
+            </AgendaSection>
+          </div>
+
+          {/* 6. IDS (IDENTIFY, DISCUSS, SOLVE) */}
+          <div id="section-ids" style={{ scrollMarginTop: 24 }}>
+            <AgendaSection
+              title="IDS"
+              targetMinutes={60}
+              active={activeSection === 'ids'}
+              onActivate={() => changeSection('ids')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'ids' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'ids' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Core de la reunión L10 (60 min). Priorizar los Top 3 issues. 1) Identificar la causa raíz real, 2) Discutir soluciones de forma concisa, 3) Resolver creando To-Dos concretos."
+            >
+              <Table
+                className="glass-panel"
+                pagination={false}
+                size="small"
+                dataSource={issues}
+                rowKey="id"
+                columns={[
+                  {
+                    title: 'Título',
+                    dataIndex: 'title',
+                    key: 'title',
+                    sorter: (a, b) => a.title.localeCompare(b.title),
+                    render: (title, record) => (
+                      <div>
+                        <Typography.Text strong style={{ fontSize: 14 }}>{title}</Typography.Text>
+                        {record.description && (
+                          <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
+                            {record.description}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  },
+                  {
+                    title: 'Prioridad',
+                    dataIndex: 'priority',
+                    key: 'priority',
+                    filters: [
+                      { text: 'Alta', value: 'high' },
+                      { text: 'Media', value: 'medium' },
+                      { text: 'Baja', value: 'low' },
+                    ],
+                    onFilter: (value, record) => record.priority === value,
+                    render: (priority) => (
+                      <Tag color={priority === 'high' ? 'red' : priority === 'medium' ? 'orange' : 'blue'}>
+                        {priority.toUpperCase()}
+                      </Tag>
+                    )
+                  },
+                  {
+                    title: 'Estado',
+                    dataIndex: 'status',
+                    key: 'status',
+                    filters: ISSUE_STATUS_OPTIONS.map(o => ({ text: o.label, value: o.value })),
+                    onFilter: (value, record) => record.status === value,
+                    render: (status, record) => (
+                      <Select
+                        size="small"
+                        style={{ width: 110 }}
+                        value={status}
+                        options={ISSUE_STATUS_OPTIONS}
+                        onChange={(newStatus) => changeIssueStatus(record.id, newStatus)}
+                      />
+                    )
+                  },
+                  {
+                    title: 'Acciones',
+                    key: 'actions',
+                    render: (_, record) => (
+                      <Button
+                        size="small"
+                        type="primary"
+                        ghost
+                        icon={<PlusOutlined />}
+                        onClick={() => setCreatingTodo(true)}
+                      >
+                        + To-Do
+                      </Button>
+                    )
+                  },
+                  {
+                    title: 'Discusión',
+                    key: 'discussion',
+                    width: 250,
+                    render: (_, record) => (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <Input
+                            size="small"
+                            placeholder="Añadir nota..."
+                            value={issueNoteDrafts[record.id] ?? ''}
+                            onChange={(e) => setIssueNoteDrafts((prev) => ({ ...prev, [record.id]: e.target.value }))}
+                            onPressEnter={() => logIssueNote(record.id)}
+                          />
+                          <Button size="small" icon={<PlusOutlined />} onClick={() => logIssueNote(record.id)} />
+                        </div>
+                        {logsFor('issue', record.id).length > 0 && (
+                          <div style={{ maxHeight: 60, overflowY: 'auto', fontSize: 11, background: 'rgba(0,0,0,0.02)', padding: '2px 6px', borderRadius: 4 }}>
+                            {logsFor('issue', record.id).map((log) => (
+                              <div key={log.id}>• {log.notes}</div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+                ]}
+              />
+            </AgendaSection>
+          </div>
+
+          {/* 7. CONCLUDE */}
+          <div id="section-conclude" style={{ scrollMarginTop: 24 }}>
+            <AgendaSection
+              title="Conclude"
+              targetMinutes={5}
+              active={activeSection === 'conclude'}
+              onActivate={() => changeSection('conclude')}
+              onReset={resetSectionTimer}
+              initialSeconds={meeting.currentSectionId === 'conclude' ? meeting.currentSectionAccumulatedSeconds : 0}
+              timerStartedAt={meeting.currentSectionId === 'conclude' ? meeting.currentSectionStartedAt : null}
+              isPaused={meeting.timerIsPaused}
+              description="Cierre impecable: 1) Recapitular To-Dos nuevos creados, 2) Mensajes en cascada para la organización, 3) Cada miembro califica la reunión del 1 al 10 (apuntar a media > 8)."
+            >

@@ -14,7 +14,7 @@ export function KPICard({ title, value, icon, color, loading, onClick }: KPICard
   return (
     <Card
       className="glass-panel"
-      bodyStyle={{ padding: 16, cursor: onClick ? 'pointer' : 'default' }}
+      styles={{body:{ padding: 16, cursor: onClick ? 'pointer' : 'default' }}}
       onClick={onClick}
     >
       <Space align="center" size={16}>

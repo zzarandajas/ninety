@@ -16,3 +16,13 @@ export function lastNMondays(n: number, from: Date = new Date()): Date[] {
   }
   return mondays;
 }
+
+export function lastNMonths(n: number, from: Date = new Date()): Date[] {
+  const result: Date[] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth() - i, 1));
+    result.push(d);
+  }
+  return result;
+}
+

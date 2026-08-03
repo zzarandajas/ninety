@@ -211,7 +211,7 @@ export function RocksBoard() {
   return (
     <Template
       title="Rocks"
-      subtitle="Rocks de empresa y personales del trimestre: estado, milestones y vencimientos."
+      subtitle="Rocks de empresa y personales del periodo: estado, milestones y vencimientos."
       extra={
         <Button icon={<Icons.PlusOutlined />} type="primary" onClick={() => setModalRock('new')}>
           Nuevo Rock

@@ -104,10 +104,8 @@ export class SeatRepository {
   }
 
   /**
-   * Elimina todos los seats del tenant y crea los 5 seats por defecto de EOS:
-   * - Visionario (raíz)
-   * - Integrador (hijo de Visionario)
-   * - Ventas/Marketing, Operaciones, Finanzas (hijos de Integrador)
+   * Elimina todos los seats del tenant y crea la estructura EOS por defecto
+   * con soporte explícito para 3 integradores como excepción solicitada.
    */
   async resetToDefault(userId: string) {
     // Desasignar todos los miembros de sus seats y limpiar GWC
@@ -119,7 +117,7 @@ export class SeatRepository {
     // Eliminar todos los seats del tenant
     await this.prisma.seat.deleteMany({ where: { tenantId: this.tenantId } });
 
-    // Crear los seats por defecto de EOS
+    // Crear los seats por defecto de EOS (con la excepción de permitir hasta 3 integradores)
     const visionarySeat = await this.create(
       {
         name: 'Visionario',
@@ -134,9 +132,10 @@ export class SeatRepository {
       userId
     );
 
-    const integratorSeat = await this.create(
+    // En este sistema permitimos múltiples integradores bajo el visionario (hasta 3 en este reset)
+    const integrator1 = await this.create(
       {
-        name: 'Integrador',
+        name: 'Integrador 1',
         parentSeatId: visionarySeat.id,
         rolesAndResponsibilities: [
           'Ejecutar el plan de negocios y la visión',
@@ -149,10 +148,35 @@ export class SeatRepository {
       userId
     );
 
+    const integrator2 = await this.create(
+      {
+        name: 'Integrador 2',
+        parentSeatId: visionarySeat.id,
+        rolesAndResponsibilities: [
+          'Apoyo en la ejecución de la visión',
+          'Gestión de proyectos especiales',
+          'Coordinación interdepartamental secundaria',
+        ],
+      },
+      userId
+    );
+
+    const integrator3 = await this.create(
+      {
+        name: 'Integrador 3',
+        parentSeatId: visionarySeat.id,
+        rolesAndResponsibilities: [
+          'Gestión de talento y cultura',
+          'Supervisión de operaciones internacionales',
+        ],
+      },
+      userId
+    );
+
     const salesSeat = await this.create(
       {
         name: 'Ventas/Marketing',
-        parentSeatId: integratorSeat.id,
+        parentSeatId: integrator1.id,
         rolesAndResponsibilities: [
           'Generar demanda y atraer clientes potenciales',
           'Gestionar el proceso de ventas',
@@ -167,7 +191,7 @@ export class SeatRepository {
     const operationsSeat = await this.create(
       {
         name: 'Operaciones',
-        parentSeatId: integratorSeat.id,
+        parentSeatId: integrator2.id,
         rolesAndResponsibilities: [
           'Entregar el producto o servicio',
           'Optimizar procesos y eficiencia',
@@ -182,7 +206,7 @@ export class SeatRepository {
     const financeSeat = await this.create(
       {
         name: 'Finanzas',
-        parentSeatId: integratorSeat.id,
+        parentSeatId: integrator3.id,
         rolesAndResponsibilities: [
           'Gestionar el flujo de caja',
           'Preparar informes financieros',
@@ -194,6 +218,6 @@ export class SeatRepository {
       userId
     );
 
-    return [visionarySeat, integratorSeat, salesSeat, operationsSeat, financeSeat];
+    return [visionarySeat, integrator1, integrator2, integrator3, salesSeat, operationsSeat, financeSeat];
   }
 }

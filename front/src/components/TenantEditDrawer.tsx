@@ -154,7 +154,7 @@ export function TenantEditDrawer({ tenant, onClose, onUpdated }: TenantEditDrawe
       width={560}
       open={!!tenant}
       onClose={onClose}
-      destroyOnClose
+      destroyOnHidden 
     >
       {tenant && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>

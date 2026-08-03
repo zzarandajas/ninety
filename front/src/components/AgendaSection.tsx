@@ -1,10 +1,11 @@
-import { ReloadOutlined } from '@ant-design/icons';
-import { Button, Progress, Space, Typography } from 'antd';
+import * as Icons from '@ant-design/icons';
+import { Button, Progress, Space, Tag, Typography } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState, type ReactNode } from 'react';
 
 export interface AgendaSectionProps {
   title: string;
+  icon: ReactNode ;
   targetMinutes: number;
   active: boolean;
   onActivate: () => void;
@@ -25,6 +26,7 @@ function formatTime(totalSeconds: number): string {
 
 export function AgendaSection({ 
   title, 
+  icon,
   targetMinutes, 
   active, 
   onActivate, 
@@ -75,11 +77,9 @@ export function AgendaSection({
       >
         <Space align="center" size="middle">
           <Typography.Text strong style={{ fontSize: 16 }}>
-            {title}
+           {icon} {title}
           </Typography.Text>
-          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-            ⏱ Target: {targetMinutes} min
-          </Typography.Text>
+
         </Space>
 
         {active ? (
@@ -90,14 +90,14 @@ export function AgendaSection({
             >
               {formatTime(seconds)} / {targetMinutes}:00
             </Typography.Text>
-            <Button size="small" type="text" icon={<ReloadOutlined />} onClick={onReset}>
+            <Button size="small" type="text" icon={<Icons.ReloadOutlined />} onClick={onReset}>
               Reiniciar
             </Button>
           </Space>
         ) : (
-          <Typography.Text type="secondary" style={{ fontSize: 13 }}>
-            Hacer clic para activar sección →
-          </Typography.Text>
+          <Tag color={'green'}>
+            <Icons.ClockCircleOutlined />  {targetMinutes} min
+          </Tag>
         )}
       </div>
 
