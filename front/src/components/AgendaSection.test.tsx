@@ -27,7 +27,7 @@ describe('AgendaSection', () => {
 
   it('shows its children and a running timer when active', () => {
     render(
-      <AgendaSection title="Segue" targetMinutes={5} active onActivate={vi.fn()}>
+      <AgendaSection icon={null} title="Segue" targetMinutes={5} active onActivate={vi.fn()}>
         <div>contenido de segue</div>
       </AgendaSection>
     );
@@ -45,7 +45,7 @@ describe('AgendaSection', () => {
     const onActivate = vi.fn();
 
     render(
-      <AgendaSection title="Scorecard" targetMinutes={5} active={false} onActivate={onActivate}>
+      <AgendaSection icon={null} title="Scorecard" targetMinutes={5} active={false} onActivate={onActivate}>
         <div>contenido de scorecard</div>
       </AgendaSection>
     );
@@ -57,7 +57,7 @@ describe('AgendaSection', () => {
 
   it('stops the timer while collapsed and resumes counting from where it left off when re-activated', () => {
     const { rerender } = render(
-      <AgendaSection title="IDS" targetMinutes={60} active onActivate={vi.fn()}>
+      <AgendaSection icon={null} title="IDS" targetMinutes={60} active onActivate={vi.fn()}>
         <div>ids</div>
       </AgendaSection>
     );
@@ -68,7 +68,7 @@ describe('AgendaSection', () => {
     expect(screen.getByText('00:05 / 60:00')).toBeInTheDocument();
 
     rerender(
-      <AgendaSection title="IDS" targetMinutes={60} active={false} onActivate={vi.fn()}>
+      <AgendaSection icon={null} title="IDS" targetMinutes={60} active={false} onActivate={vi.fn()}>
         <div>ids</div>
       </AgendaSection>
     );
@@ -77,7 +77,7 @@ describe('AgendaSection', () => {
     });
 
     rerender(
-      <AgendaSection title="IDS" targetMinutes={60} active onActivate={vi.fn()}>
+      <AgendaSection icon={null} title="IDS" targetMinutes={60} active onActivate={vi.fn()}>
         <div>ids</div>
       </AgendaSection>
     );
@@ -86,7 +86,7 @@ describe('AgendaSection', () => {
 
   it('pauses and resumes on button click without losing elapsed time', () => {
     render(
-      <AgendaSection title="Rock Review" targetMinutes={5} active onActivate={vi.fn()}>
+      <AgendaSection icon={null} title="Rock Review" targetMinutes={5} active onActivate={vi.fn()}>
         <div>rocks</div>
       </AgendaSection>
     );
