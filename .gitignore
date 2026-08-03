@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+.env
+.env.*.local
+*.tsbuildinfo
+server/uploads/
+
+# Stale compiled twins: tsc -b (front/tsconfig.node.json + tsconfig.app.json)
+# can regenerate these next to their .ts/.tsx sources if noEmit ever
+# regresses. Vite/Node resolve .js before .ts, so a stray copy here silently
+# shadows real source edits.
+front/vite.config.js
+front/src/**/*.js
+
+# Agentic planning/execution scratch workspace — not part of the shipped project
+.superpowers/
