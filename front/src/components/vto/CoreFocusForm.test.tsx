@@ -52,4 +52,14 @@ describe('CoreFocusForm', () => {
     });
     expect(onSaved).toHaveBeenCalled();
   });
+
+  it('shows an error message when saving fails', async () => {
+    const { vtoApi } = await import('../../lib/vtoApi');
+    vi.mocked(vtoApi.update).mockRejectedValue(new Error('Request failed'));
+
+    render(<CoreFocusForm document={baseDoc} onSaved={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+
+    expect(await screen.findByText('Request failed')).toBeInTheDocument();
+  });
 });

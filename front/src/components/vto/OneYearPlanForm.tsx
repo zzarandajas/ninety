@@ -1,3 +1,4 @@
+import { SaveOutlined } from '@ant-design/icons';
 import { Button, Form, Input, message, Select } from 'antd';
 import { useEffect } from 'react';
 import type { Rock } from '../../lib/rocksApi';
@@ -34,7 +35,7 @@ export function OneYearPlanForm({ document, companyRocks, onSaved }: OneYearPlan
       goals: document.oneYearPlan.goals ?? [],
       companyRockIds: document.oneYearPlan.companyRockIds ?? [],
     });
-  }, [document, form]);
+  }, [JSON.stringify(document.oneYearPlan), form]);
 
   async function handleSubmit(values: FormValues) {
     try {
@@ -79,7 +80,7 @@ export function OneYearPlanForm({ document, companyRocks, onSaved }: OneYearPlan
           options={companyRocks.map((rock) => ({ value: rock.id, label: `${rock.title} (${rock.quarter})` }))}
         />
       </Form.Item>
-      <Button type="primary" htmlType="submit">
+      <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
         Guardar sección
       </Button>
     </Form>

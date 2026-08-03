@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireTenant } from '../middleware/resolveTenantContext.js';
 import { VTORepository } from '../repositories/VTORepository.js';
+import { publishTenantEvent } from '../lib/redis.js';
 
 const marketingStrategySchema = z.object({
   targetMarket: z.string().optional(),
@@ -46,6 +47,15 @@ export default async function vtoRoutes(app: FastifyInstance): Promise<void> {
   app.put('/', { preHandler: requireTenant(app) }, async (request) => {
     const body = updateVTOSchema.parse(request.body);
     const repo = new VTORepository(request.tenantId as string);
-    return repo.update(body, request.user.userId);
+    const vto = await repo.update(body, request.user.userId);
+    await publishTenantEvent({
+      type: 'ENTITY_CHANGED',
+      entity: 'vto',
+      action: 'update',
+      id: vto.id,
+      tenantId: request.tenantId as string,
+      senderUserId: request.user.userId,
+    });
+    return vto;
   });
 }

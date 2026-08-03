@@ -1,3 +1,4 @@
+import { SaveOutlined } from '@ant-design/icons';
 import { Button, Form, Input, message, Select } from 'antd';
 import { useEffect } from 'react';
 import { vtoApi, type VTODocument } from '../../lib/vtoApi';
@@ -30,7 +31,7 @@ export function ThreeYearPictureForm({ document, onSaved }: ThreeYearPictureForm
       measurables: document.threeYearPicture.measurables ?? [],
       lookLikeStatements: document.threeYearPicture.lookLikeStatements ?? [],
     });
-  }, [document, form]);
+  }, [JSON.stringify(document.threeYearPicture), form]);
 
   async function handleSubmit(values: FormValues) {
     try {
@@ -67,7 +68,7 @@ export function ThreeYearPictureForm({ document, onSaved }: ThreeYearPictureForm
       <Form.Item name='lookLikeStatements' label='¿Cómo se ve?'>
         <Select mode='tags' placeholder='Escribe una frase y pulsa Enter' tokenSeparators={[',']} />
       </Form.Item>
-      <Button type='primary' htmlType='submit'>
+      <Button type='primary' htmlType='submit' icon={<SaveOutlined />}>
         Guardar sección
       </Button>
     </Form>

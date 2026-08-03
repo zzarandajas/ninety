@@ -1,3 +1,4 @@
+import { SaveOutlined } from '@ant-design/icons';
 import { Button, Form, Input, message, Select, Typography } from 'antd';
 import { useEffect } from 'react';
 import { vtoApi, type VTODocument } from '../../lib/vtoApi';
@@ -28,7 +29,7 @@ export function MarketingStrategyForm({ document, onSaved }: MarketingStrategyFo
       provenProcess: document.marketingStrategy.provenProcess ?? '',
       guarantee: document.marketingStrategy.guarantee ?? '',
     });
-  }, [document, form]);
+  }, [JSON.stringify(document.marketingStrategy), form]);
 
   async function handleSubmit(values: FormValues) {
     try {
@@ -64,7 +65,7 @@ export function MarketingStrategyForm({ document, onSaved }: MarketingStrategyFo
       <Typography.Paragraph type='secondary'>
         The Three Uniques describe qué os diferencia realmente de la competencia.
       </Typography.Paragraph>
-      <Button type='primary' htmlType='submit'>
+      <Button type='primary' htmlType='submit' icon={<SaveOutlined />}>
         Guardar sección
       </Button>
     </Form>

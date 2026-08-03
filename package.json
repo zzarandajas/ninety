@@ -1,0 +1,20 @@
+{
+  "name": "ninety-tool",
+  "version": "1.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "npm run migrate:deploy && concurrently -n server,front -c blue.bold,green.bold \"npm run dev --prefix server\" \"npm run dev --prefix front\"",
+    "dev:docker": "docker compose -f docker-compose.dev.yml up --build",
+    "dev:docker:down": "docker compose -f docker-compose.dev.yml down",
+    "migrate:deploy": "npm run migrate:deploy --prefix server",
+    "migrate:dev": "npm run migrate:dev --prefix server",
+    "seed": "npm run db:seed --prefix server",
+    "typecheck": "npm --prefix server run typecheck && npm --prefix front run typecheck",
+    "lint": "npm --prefix server run lint && npm --prefix front run lint",
+    "test": "npm --prefix server run test && npm --prefix front run test",
+    "test:coverage": "npm --prefix server run test:coverage && npm --prefix front run test:coverage"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

@@ -1,31 +1,36 @@
 :root {
-  --glass-bg-primary: rgba(255, 255, 255, 0.55);
-  --glass-bg-secondary: rgba(255, 255, 255, 0.35);
-  --glass-bg-elevated: rgba(255, 255, 255, 0.75);
+  --glass-bg-primary: rgba(255, 255, 255, 0.92);
+  --glass-bg-secondary: rgba(255, 255, 255, 0.92);
+  --glass-bg-elevated: rgba(255, 255, 255, 0.92);
   --glass-border: rgba(255, 255, 255, 0.4);
   --glass-blur-sm: blur(8px);
   --glass-blur-md: blur(16px);
   --glass-blur-lg: blur(24px);
   --glass-shadow: 0 8px 32px rgba(31, 38, 135, 0.15);
 
-  /* Fondo corporativo: neutro con profundidad via glows suaves de marca, sin
-     gradientes saturados tipo candy (ver docs/DESIGN_BRIEF.md). */
+  /* Fondo corporativo por tenant: dinámico según el tenant activo */
+  --tenant-bg: #eef2f0;
+  --brand-green-glow: rgba(22, 152, 60, 0.12);
+
   --app-bg-gradient:
-    radial-gradient(1200px 640px at 88% -10%, rgba(22, 152, 60, 0.10), transparent 60%),
+    radial-gradient(1200px 640px at 88% -10%, var(--brand-green-glow), transparent 60%),
     radial-gradient(900px 620px at -10% 10%, rgba(15, 23, 42, 0.05), transparent 55%),
     radial-gradient(1000px 700px at 50% 120%, rgba(15, 23, 42, 0.04), transparent 60%),
-    linear-gradient(165deg, #eef2f0 0%, #e7ede9 45%, #dde6e0 100%);
+    linear-gradient(165deg, var(--tenant-bg) 0%, var(--tenant-bg) 100%);
 
   --status-on-track: rgba(34, 197, 94, 0.85);
   --status-off-track: rgba(239, 68, 68, 0.85);
   --status-done: rgba(59, 130, 246, 0.85);
 
-  /* Brand green — corporate surfaces (login, marketing), monochromatic ramp off #16983c */
+  /* Brand color — dinámico por tenant (defaults a verde EOS) */
   --brand-green-darker: #0a4a1e;
   --brand-green-dark: #0f6e2c;
   --brand-green: #16983c;
   --brand-green-light: #4cbf72;
-  --brand-green-tint: #eaf7ee;
+  --brand-green-tint: rgba(22, 152, 60, 0.1);
+  --brand-green-border: rgba(22, 152, 60, 0.2);
+  --brand-green-shadow: rgba(22, 152, 60, 0.28);
+  --brand-green-shadow-sm: rgba(22, 152, 60, 0.25);
   --brand-ink: #0b2013;
 
   /* Neutrales corporativos — texto/bordes del shell (sidebar, header) sobre glass */
@@ -37,17 +42,62 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: var(--app-bg-gradient);
+  background-color: var(--tenant-bg);
+  background-image: var(--app-bg-gradient);
   background-attachment: fixed;
 }
 
 .glass-panel {
-  background: var(--glass-bg-primary);
+  background:
+    radial-gradient(var(--glass-bg-primary), var(--glass-bg-primary)) padding-box,
+    linear-gradient(6deg, rgba(255, 255, 255, 0.95), var(--tenant-bg), rgba(255, 255, 255, 0.55)) border-box;
+  border: 5px solid transparent;
+  border-radius: 16px;
   backdrop-filter: var(--glass-blur-md);
   -webkit-backdrop-filter: var(--glass-blur-md);
-  border: 1px solid var(--glass-border);
-  border-radius: 16px;
   box-shadow: var(--glass-shadow);
+}
+
+/* ---------- Icon tiles: baldosa cuadrada con filo 3D ---------- */
+
+.icon-tile,
+.app-sider .ant-menu-item-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  background-color: var(--brand-green-tint);
+  border: 1px solid var(--brand-green-border);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -2px 3px var(--brand-green-shadow),
+    0 1px 3px rgba(15, 23, 42, 0.14);
+}
+
+.icon-tile {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  font-size: 24px;
+  color: var(--brand-green);
+}
+
+.icon-tile--sm {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  font-size: 16px;
+}
+
+.app-sider .ant-menu-item-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  font-size: 13px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 2px var(--brand-green-shadow-sm),
+    0 1px 2px rgba(15, 23, 42, 0.12);
 }
 
 /* ---------- App shell (sidebar layout) ---------- */
@@ -67,12 +117,62 @@ body {
 .app-sider-brand {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   padding: 20px 20px 16px;
   font-weight: 600;
   color: var(--corp-ink);
   white-space: nowrap;
   overflow: hidden;
+}
+
+.app-sider-brand-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.app-sider-brand-collapsed {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.app-sider.ant-layout-sider-collapsed .app-sider-brand {
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.app-sider-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--brand-green-border);
+  border-radius: 7px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--brand-green);
+  background: var(--brand-green-tint);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -1px 2px var(--brand-green-shadow-sm),
+    0 1px 2px rgba(15, 23, 42, 0.12);
+  transition: all 0.2s ease;
+}
+
+.app-sider-toggle:hover {
+  background: var(--brand-green);
+  color: #fff;
 }
 
 .app-sider-brand-mark {
@@ -108,18 +208,18 @@ body {
 
 .app-sider .ant-menu {
   flex: 1;
-  padding: 4px 10px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.app-sider .ant-menu-inline .ant-menu-item,
+.app-sider .ant-menu-inline .ant-menu-submenu-title {
+  padding-inline: 8px !important;
 }
 
 .app-sider .ant-menu-item {
   margin-block: 2px !important;
-}
-
-.app-sider .ant-layout-sider-trigger {
-  position: static;
-  background: var(--glass-bg-secondary) !important;
-  color: var(--brand-green-dark);
-  border-top: 1px solid var(--glass-border);
 }
 
 .app-header-bar {
@@ -127,6 +227,9 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
+  background: var(--glass-bg-secondary) !important;
+  backdrop-filter: var(--glass-blur-md);
+  -webkit-backdrop-filter: var(--glass-blur-md);
 }
 
 .app-header-title {
@@ -134,7 +237,7 @@ body {
 }
 
 .app-content-area {
-  min-height: calc(100vh - 64px - 32px);
+  flex: 1;
 }
 
 .agenda-section {
@@ -405,10 +508,14 @@ body {
   height: 75%;
 }
 
-.login-card .ant-input-affix-wrapper,
 .login-card .ant-input,
+.login-card .ant-input-affix-wrapper,
 .login-card .ant-btn-lg {
   min-height: 44px;
+}
+
+.login-card .ant-input-affix-wrapper .ant-input {
+  min-height: auto;
 }
 
 .login-form-side__footer {
@@ -450,6 +557,218 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: 16px;
   padding: 24px;
+}
+
+/* ---------- Tenant switcher ---------- */
+
+.tenant-switcher.ant-select .ant-select-selection-item {
+  display: flex;
+  align-items: center;
+  line-height: 1;
+}
+
+.tenant-switcher.ant-select .ant-select-selection-item > span,
+.tenant-switcher-popup .ant-select-item-option-content > span {
+  display: flex;
+  align-items: center;
+}
+
+.tenant-switcher-popup .ant-select-item-option-content {
+  display: flex;
+  align-items: center;
+}
+
+/* ---------- Modo dios (impersonación de owner) ---------- */
+
+.god-mode-selector.ant-select .ant-select-selection-item {
+  display: flex;
+  align-items: center;
+}
+
+.god-mode-selector__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.god-mode-selector.ant-select .ant-select-selector {
+  border-color: var(--brand-green-border) !important;
+  background: var(--brand-green-tint) !important;
+}
+
+.god-mode-selector.ant-select-focused .ant-select-selector {
+  border-color: var(--brand-green) !important;
+  box-shadow: 0 0 0 3px rgba(22, 152, 60, 0.15) !important;
+}
+
+.god-mode-option {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+  min-width: 0;
+  padding: 2px 0;
+}
+
+.god-mode-option__name {
+  font-weight: 600;
+  color: var(--corp-ink);
+}
+
+.god-mode-option__meta {
+  font-size: 12px;
+  color: var(--corp-ink-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impersonation-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 16px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(185, 28, 28, 0.35);
+}
+
+.impersonation-banner__text {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.impersonation-banner__exit.ant-btn {
+  flex: none;
+  background: #fff !important;
+  color: #b91c1c !important;
+  border-color: #fff !important;
+  font-weight: 600;
+}
+
+.impersonation-banner__exit.ant-btn:hover {
+  background: #fff7f7 !important;
+  color: #991b1b !important;
+}
+
+/* ---------- Modals & Drawers Corporate Glass Styling ---------- */
+
+.ant-modal-mask,
+.ant-drawer-mask {
+  background: rgba(15, 23, 42, 0.4) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
+}
+
+.ant-modal-content {
+  background: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.7) !important;
+  border-radius: 20px !important;
+  box-shadow:
+    0 24px 48px -12px rgba(15, 23, 42, 0.22),
+    inset 0 1px 1px rgba(255, 255, 255, 0.8) !important;
+  padding: 24px 28px !important;
+}
+
+.ant-modal-header {
+  background: transparent !important;
+  margin-bottom: 20px !important;
+  padding-bottom: 14px !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+
+.ant-modal-title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--corp-ink) !important;
+  letter-spacing: -0.01em;
+}
+
+.ant-modal-close {
+  top: 18px !important;
+  right: 20px !important;
+  width: 32px !important;
+  height: 32px !important;
+  border-radius: 50% !important;
+  background: rgba(15, 23, 42, 0.05) !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-modal-close:hover {
+  background: rgba(15, 23, 42, 0.1) !important;
+  color: var(--corp-ink) !important;
+}
+
+.ant-drawer-content {
+  background: rgba(255, 255, 255, 0.94) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.7) !important;
+}
+
+.ant-drawer-header {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08) !important;
+}
+
+.ant-drawer-title {
+  font-size: 18px !important;
+  font-weight: 700 !important;
+  color: var(--corp-ink) !important;
+}
+
+/* Modal form controls polish */
+.ant-form-item-label label {
+  font-weight: 600 !important;
+  color: #334155 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+.ant-input,
+.ant-select-selector,
+.ant-picker,
+.ant-input-number {
+  border-color: rgba(15, 23, 42, 0.12) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+  transition: all 0.2s ease !important;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused .ant-select-selector,
+.ant-picker-focused {
+  border-color: var(--brand-green) !important;
+  box-shadow: 0 0 0 3px rgba(22, 152, 60, 0.15) !important;
+}
+
+.modal-section-card {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  border-radius: 12px;
+  padding: 16px;
+  margin-top: 20px;
+}
+
+.modal-actions-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(15, 23, 42, 0.08);
 }
 
 @media print {

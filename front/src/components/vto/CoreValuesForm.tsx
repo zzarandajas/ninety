@@ -1,3 +1,4 @@
+import { SaveOutlined } from '@ant-design/icons';
 import { Button, Form, message, Select, Typography } from 'antd';
 import { useEffect } from 'react';
 import { vtoApi, type VTODocument } from '../../lib/vtoApi';
@@ -20,7 +21,7 @@ export function CoreValuesForm({ document, onSaved }: CoreValuesFormProps) {
 
   useEffect(() => {
     form.setFieldsValue({ coreValues: document.coreValues });
-  }, [document, form]);
+  }, [JSON.stringify(document.coreValues), form]);
 
   async function handleSubmit(values: FormValues) {
     try {
@@ -40,7 +41,7 @@ export function CoreValuesForm({ document, onSaved }: CoreValuesFormProps) {
       <Form.Item name="coreValues" label="Core Values">
         <Select mode="tags" placeholder="Escribe un valor y pulsa Enter" tokenSeparators={[',']} />
       </Form.Item>
-      <Button type="primary" htmlType="submit">
+      <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
         Guardar sección
       </Button>
     </Form>

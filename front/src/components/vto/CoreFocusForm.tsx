@@ -1,3 +1,4 @@
+import { SaveOutlined } from '@ant-design/icons';
 import { Button, Form, Input, message, Typography } from 'antd';
 import { useEffect } from 'react';
 import { vtoApi, type VTODocument } from '../../lib/vtoApi';
@@ -26,7 +27,7 @@ export function CoreFocusForm({ document, onSaved }: CoreFocusFormProps) {
       coreFocusNiche: document.coreFocusNiche ?? undefined,
       tenYearTarget: document.tenYearTarget ?? undefined,
     });
-  }, [document, form]);
+  }, [document.coreFocusPurpose, document.coreFocusNiche, document.tenYearTarget, form]);
 
   async function handleSubmit(values: FormValues) {
     try {
@@ -57,7 +58,7 @@ export function CoreFocusForm({ document, onSaved }: CoreFocusFormProps) {
       <Form.Item name="tenYearTarget" label="Objetivo a 10 años">
         <Input.TextArea rows={2} />
       </Form.Item>
-      <Button type="primary" htmlType="submit">
+      <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
         Guardar sección
       </Button>
     </Form>

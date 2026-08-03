@@ -1,0 +1,450 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────────────────────
+// NÚCLEO MULTITENANT
+// ─────────────────────────────────────────────
+
+model Tenant {
+  id                   String   @id @default(uuid())
+  name                 String
+  slug                 String   @unique
+  timezone             String   @default("Europe/Madrid")
+  fiscalYearStartMonth Int      @default(1) @map("fiscal_year_start_month")
+  logoUrl              String?  @map("logo_url")
+  isotypeUrl           String?  @map("isotype_url")
+  bgColor              String?  @default("#ffffff") @map("bg_color")
+  accentColor          String?  @default("#1890ff") @map("accent_color")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  memberships TenantMembership[]
+  seats       Seat[]
+  quarters    Quarter[]
+  rocks       Rock[]
+  metrics     ScorecardMetric[]
+  entries     ScorecardEntry[]
+  meetings    L10Meeting[]
+  agendaLogs  L10AgendaItemLog[]
+  meetingRatings L10MeetingRating[]
+  issues      Issue[]
+  todos       Todo[]
+  milestones  Milestone[]
+  vto         VTODocument[]
+
+  @@map("tenants")
+}
+
+model User {
+  id                 String   @id @default(uuid())
+  email              String   @unique
+  passwordHash       String   @map("password_hash")
+  fullName           String   @map("full_name")
+  mustChangePassword Boolean  @default(false) @map("must_change_password")
+  avatarUrl          String?  @map("avatar_url")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  memberships             TenantMembership[]
+  ownedRocks              Rock[]             @relation("RockOwner")
+  ownedMetrics            ScorecardMetric[]  @relation("ScorecardMetricOwner")
+  enteredScorecardEntries ScorecardEntry[]   @relation("ScorecardEntryEnteredBy")
+  facilitatedMeetings     L10Meeting[]       @relation("L10MeetingFacilitator")
+  raisedIssues            Issue[]            @relation("IssueRaisedBy")
+  ownedTodos              Todo[]             @relation("TodoOwner")
+  updatedVtoDocuments     VTODocument[]      @relation("VTODocumentUpdatedBy")
+  createdRocks            Rock[]             @relation("RockCreatedBy")
+  updatedRocks            Rock[]             @relation("RockUpdatedBy")
+  createdIssues           Issue[]            @relation("IssueCreatedBy")
+  updatedIssues           Issue[]            @relation("IssueUpdatedBy")
+  createdSeats            Seat[]             @relation("SeatCreatedBy")
+  updatedSeats            Seat[]             @relation("SeatUpdatedBy")
+  createdMetrics          ScorecardMetric[]  @relation("ScorecardMetricCreatedBy")
+  updatedMetrics          ScorecardMetric[]  @relation("ScorecardMetricUpdatedBy")
+  createdMeetings         L10Meeting[]       @relation("L10MeetingCreatedBy")
+  updatedMeetings         L10Meeting[]       @relation("L10MeetingUpdatedBy")
+  createdTodos            Todo[]             @relation("TodoCreatedBy")
+  updatedTodos            Todo[]             @relation("TodoUpdatedBy")
+  meetingRatings          L10MeetingRating[]
+
+  @@map("users")
+}
+
+enum TenantRole {
+  owner
+  admin
+  member
+}
+
+model TenantMembership {
+  id       String     @id @default(uuid())
+  userId   String     @map("user_id")
+  tenantId String     @map("tenant_id")
+  role     TenantRole @default(member)
+  seatId   String?    @map("seat_id")
+  isActive Boolean    @default(true) @map("is_active")
+
+  // GWC: Evaluación del ocupante en el seat (Get it, Want it, Capacity)
+  getsIt   Boolean? @map("gets_it")   // Entiende perfectamente la función
+  wantsIt  Boolean? @map("wants_it")  // Le apasiona el trabajo
+  hasCapacity Boolean? @map("has_capacity") // Tiene habilidades, tiempo y talento
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  seat   Seat?  @relation(fields: [seatId, tenantId], references: [id, tenantId])
+
+  @@unique([userId, tenantId])
+  @@index([tenantId])
+  @@map("tenant_memberships")
+}
+
+// ─────────────────────────────────────────────
+// ACCOUNTABILITY CHART
+// ─────────────────────────────────────────────
+
+model Seat {
+  id                       String   @id @default(uuid())
+  tenantId                 String   @map("tenant_id")
+  name                     String
+  parentSeatId             String?  @map("parent_seat_id")
+  rolesAndResponsibilities Json     @default("[]") @map("roles_and_responsibilities")
+  createdAt                DateTime @default(now()) @map("created_at")
+  updatedAt                DateTime @default(now()) @updatedAt @map("updated_at")
+  createdByUserId          String?  @map("created_by_user_id")
+  updatedByUserId          String?  @map("updated_by_user_id")
+
+  tenant     Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  parentSeat Seat?              @relation("SeatHierarchy", fields: [parentSeatId], references: [id])
+  childSeats Seat[]             @relation("SeatHierarchy")
+  occupants  TenantMembership[]
+  createdBy  User?              @relation("SeatCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy  User?              @relation("SeatUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  @@unique([id, tenantId])
+  @@index([tenantId])
+  @@map("seats")
+}
+
+// ─────────────────────────────────────────────
+// ROCKS
+// ─────────────────────────────────────────────
+
+enum RockStatus {
+  on_track
+  off_track
+  done
+}
+
+// Periodo de 90 días gestionado por el owner del tenant (como en Ninety).
+// Rock.quarter guarda el `label` del periodo al que pertenece el rock.
+model Quarter {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  label     String // "2026-Q3"
+  startDate DateTime @map("start_date")
+  endDate   DateTime @map("end_date")
+  theme     String?  @map("theme")
+  isOpen    Boolean  @default(true) @map("is_open")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, label])
+  @@index([tenantId])
+  @@map("quarters")
+}
+
+model Rock {
+  id              String     @id @default(uuid())
+  tenantId        String     @map("tenant_id")
+  title           String
+  description     String?
+  ownerUserId     String     @map("owner_user_id")
+  quarter         String // "2026-Q3"
+  isCompanyRock   Boolean    @default(false) @map("is_company_rock")
+  status          RockStatus @default(on_track)
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at")
+  createdByUserId String?    @map("created_by_user_id")
+  updatedByUserId String?    @map("updated_by_user_id")
+  dueDate         DateTime   @map("due_date")
+
+  tenant     Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner      User        @relation("RockOwner", fields: [ownerUserId], references: [id])
+  createdBy  User?       @relation("RockCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy  User?       @relation("RockUpdatedBy", fields: [updatedByUserId], references: [id])
+  milestones Milestone[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, quarter])
+  @@map("rocks")
+}
+
+model Milestone {
+  id          String    @id @default(uuid())
+  tenantId    String    @map("tenant_id")
+  rockId      String    @map("rock_id")
+  description String
+  dueDate     DateTime  @map("due_date")
+  completedAt DateTime? @map("completed_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rock   Rock   @relation(fields: [rockId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([rockId])
+  @@map("milestones")
+}
+
+// ─────────────────────────────────────────────
+// SCORECARD
+// ─────────────────────────────────────────────
+
+enum MetricComparison {
+  gte
+  lte
+  eq
+}
+
+enum MetricFrequency {
+  weekly
+  monthly
+}
+
+model ScorecardMetric {
+  id              String           @id @default(uuid())
+  tenantId        String           @map("tenant_id")
+  name            String
+  ownerUserId     String           @map("owner_user_id")
+  goalValue       Decimal          @map("goal_value")
+  comparison      MetricComparison @default(gte)
+  frequency       MetricFrequency  @default(weekly)
+  unit            String           @default("#")
+  isActive        Boolean          @default(true) @map("is_active")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  updatedAt       DateTime         @default(now()) @updatedAt @map("updated_at")
+  createdByUserId String?          @map("created_by_user_id")
+  updatedByUserId String?          @map("updated_by_user_id")
+
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner     User             @relation("ScorecardMetricOwner", fields: [ownerUserId], references: [id])
+  createdBy User?            @relation("ScorecardMetricCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy User?            @relation("ScorecardMetricUpdatedBy", fields: [updatedByUserId], references: [id])
+  entries   ScorecardEntry[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId])
+  @@map("scorecard_metrics")
+}
+
+model ScorecardEntry {
+  id              String   @id @default(uuid())
+  tenantId        String   @map("tenant_id")
+  metricId        String   @map("metric_id")
+  periodStart     DateTime @map("period_start")
+  actualValue     Decimal  @map("actual_value")
+  enteredByUserId String   @map("entered_by_user_id")
+  enteredAt       DateTime @default(now()) @map("entered_at")
+
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  metric    ScorecardMetric @relation(fields: [metricId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  enteredBy User            @relation("ScorecardEntryEnteredBy", fields: [enteredByUserId], references: [id])
+
+  @@unique([metricId, periodStart])
+  @@index([tenantId])
+  @@map("scorecard_entries")
+}
+
+// ─────────────────────────────────────────────
+// L10 MEETINGS
+// ─────────────────────────────────────────────
+
+enum MeetingStatus {
+  scheduled
+  in_progress
+  completed
+}
+
+model L10Meeting {
+  id                String        @id @default(uuid())
+  tenantId          String        @map("tenant_id")
+  meetingDate       DateTime      @map("meeting_date")
+  facilitatorUserId String        @map("facilitator_user_id")
+  status            MeetingStatus @default(scheduled)
+  segueNotes        String?       @map("segue_notes")
+  headlines         String?
+  concludeNotes     String?       @map("conclude_notes")
+  overallRating     Float?        @map("overall_rating")
+  
+  // Timer fields for persistence across sessions
+  timerStartedAt          DateTime? @map("timer_started_at")
+  timerAccumulatedSeconds Int       @default(0) @map("timer_accumulated_seconds")
+  timerIsPaused           Boolean   @default(false) @map("timer_is_paused")
+
+  // Section Timer fields
+  currentSectionId                 String?   @map("current_section_id")
+  currentSectionStartedAt          DateTime? @map("current_section_started_at")
+  currentSectionAccumulatedSeconds Int       @default(0) @map("current_section_accumulated_seconds")
+
+  createdAt         DateTime      @default(now()) @map("created_at")
+  updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at")
+  createdByUserId   String?       @map("created_by_user_id")
+  updatedByUserId   String?       @map("updated_by_user_id")
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  facilitator User               @relation("L10MeetingFacilitator", fields: [facilitatorUserId], references: [id])
+  createdBy   User?              @relation("L10MeetingCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy   User?              @relation("L10MeetingUpdatedBy", fields: [updatedByUserId], references: [id])
+  agendaLogs  L10AgendaItemLog[]
+  ratings     L10MeetingRating[]
+  todos       Todo[]
+
+  @@unique([id, tenantId])
+  @@index([tenantId, meetingDate])
+  @@map("l10_meetings")
+}
+
+enum AgendaItemType {
+  rock_review
+  issue
+  todo
+}
+
+model L10AgendaItemLog {
+  id          String         @id @default(uuid())
+  tenantId    String         @map("tenant_id")
+  meetingId   String         @map("meeting_id")
+  itemType    AgendaItemType @map("item_type")
+  referenceId String         @map("reference_id")
+  notes       String?
+
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  meeting L10Meeting @relation(fields: [meetingId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([meetingId])
+  @@map("l10_agenda_item_logs")
+}
+
+// Valoración individual (1-10) de cada miembro del tenant sobre la reunión L10.
+// La media de estos votos se refleja en L10Meeting.overallRating.
+model L10MeetingRating {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  meetingId String   @map("meeting_id")
+  userId    String   @map("user_id")
+  rating    Int
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  meeting L10Meeting @relation(fields: [meetingId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  user    User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([meetingId, userId])
+  @@index([tenantId])
+  @@map("l10_meeting_ratings")
+}
+
+// ─────────────────────────────────────────────
+// ISSUES (IDS)
+// ─────────────────────────────────────────────
+
+enum IssueStatus {
+  open
+  discussing
+  solved
+  dropped
+}
+
+enum IssuePriority {
+  low
+  medium
+  high
+}
+
+model Issue {
+  id              String        @id @default(uuid())
+  tenantId        String        @map("tenant_id")
+  title           String
+  description     String?
+  raisedByUserId  String        @map("raised_by_user_id")
+  status          IssueStatus   @default(open)
+  priority        IssuePriority @default(medium)
+  sortOrder       Int           @default(0) @map("sort_order")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at")
+  createdByUserId String?       @map("created_by_user_id")
+  updatedByUserId String?       @map("updated_by_user_id")
+  resolvedAt      DateTime?     @map("resolved_at")
+  resolutionNotes String?       @map("resolution_notes")
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  raisedBy  User   @relation("IssueRaisedBy", fields: [raisedByUserId], references: [id])
+  createdBy User?  @relation("IssueCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy User?  @relation("IssueUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  @@index([tenantId, status])
+  @@map("issues")
+}
+
+// ─────────────────────────────────────────────
+// TODOS
+// ─────────────────────────────────────────────
+
+enum TodoStatus {
+  open
+  done
+}
+
+model Todo {
+  id                   String     @id @default(uuid())
+  tenantId             String     @map("tenant_id")
+  title                String
+  ownerUserId          String     @map("owner_user_id")
+  dueDate              DateTime?  @map("due_date")
+  status               TodoStatus @default(open)
+  originatingMeetingId String?    @map("originating_meeting_id")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @default(now()) @updatedAt @map("updated_at")
+  createdByUserId      String?    @map("created_by_user_id")
+  updatedByUserId      String?    @map("updated_by_user_id")
+
+  tenant             Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  owner              User        @relation("TodoOwner", fields: [ownerUserId], references: [id])
+  createdBy          User?       @relation("TodoCreatedBy", fields: [createdByUserId], references: [id])
+  updatedBy          User?       @relation("TodoUpdatedBy", fields: [updatedByUserId], references: [id])
+  originatingMeeting L10Meeting? @relation(fields: [originatingMeetingId, tenantId], references: [id, tenantId])
+
+  @@index([tenantId, status])
+  @@map("todos")
+}
+
+// ─────────────────────────────────────────────
+// V/TO
+// ─────────────────────────────────────────────
+
+model VTODocument {
+  id                String   @id @default(uuid())
+  tenantId          String   @map("tenant_id")
+  coreValues        Json     @default("[]") @map("core_values")
+  coreFocusPurpose  String?  @map("core_focus_purpose")
+  coreFocusNiche    String?  @map("core_focus_niche")
+  tenYearTarget     String?  @map("ten_year_target")
+  marketingStrategy Json     @default("{}") @map("marketing_strategy")
+  threeYearPicture  Json     @default("{}") @map("three_year_picture")
+  oneYearPlan       Json     @default("{}") @map("one_year_plan")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  updatedByUserId   String?  @map("updated_by_user_id")
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  updatedBy User?  @relation("VTODocumentUpdatedBy", fields: [updatedByUserId], references: [id])
+
+  @@unique([tenantId]) // un solo V/TO vivo por tenant
+  @@map("vto_documents")
+}
