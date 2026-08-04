@@ -167,9 +167,11 @@ export function DashboardPage() {
     {
       title: '',
       key: 'check',
-      width: 40,
+      width: 64,
       render: (_: unknown, todo: Todo) => (
-        <Checkbox checked={todo.status === 'done'} onChange={() => handleToggleTodo(todo.id, todo.status)} />
+        <span style={{ display: 'inline-flex', transform: 'scale(1.7)', transformOrigin: 'left center', lineHeight: 0 }}>
+          <Checkbox checked={todo.status === 'done'} onChange={() => handleToggleTodo(todo.id, todo.status)} />
+        </span>
       ),
     },
     {

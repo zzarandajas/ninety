@@ -32,13 +32,13 @@ describe('issuesApi', () => {
     vi.mocked(apiFetch).mockResolvedValue({ id: 'issue-1' });
     const { issuesApi } = await import('./issuesApi');
 
-    await issuesApi.create({ title: 'x', raisedByUserId: 'user-1', priority: 'high' });
+    await issuesApi.create({ quarter: '2026-Q3', title: 'x', raisedByUserId: 'user-1', priority: 'high' });
 
     expect(apiFetch).toHaveBeenCalledWith(
       '/issues',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ title: 'x', raisedByUserId: 'user-1', priority: 'high' }),
+        body: JSON.stringify({ quarter: '2026-Q3', title: 'x', raisedByUserId: 'user-1', priority: 'high' }),
       })
     );
   });

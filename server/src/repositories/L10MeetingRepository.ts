@@ -3,16 +3,19 @@ import { prisma } from '../lib/prisma.js';
 
 export interface MeetingFilters {
   status?: MeetingStatus;
+  quarter?: string;
 }
 
 export interface CreateMeetingInput {
   meetingDate: Date;
   facilitatorUserId: string;
+  quarter: string;
 }
 
 export type UpdateMeetingInput = Partial<{
   meetingDate: Date;
   facilitatorUserId: string;
+  quarter: string;
   status: MeetingStatus;
   segueNotes: string | null;
   headlines: string | null;
@@ -42,6 +45,7 @@ export class L10MeetingRepository {
       where: {
         tenantId: this.tenantId,
         ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.quarter ? { quarter: filters.quarter } : {}),
       },
       orderBy: { meetingDate: 'desc' },
     });

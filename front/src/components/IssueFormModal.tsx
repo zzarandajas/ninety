@@ -5,11 +5,13 @@ import { issuesApi, type Issue, type IssuePriority, type IssueStatus } from '../
 import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
 import { UserSelect } from './UserSelect';
+import { currentQuarter } from '../lib/quarters';
 
 export interface IssueFormModalProps {
   open: boolean;
   issue?: Issue;
   members: TenantMember[];
+  quarter?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -27,7 +29,7 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
 
-export function IssueFormModal({ open, issue, members, onClose, onSaved }: IssueFormModalProps) {
+export function IssueFormModal({ open, issue, members, quarter, onClose, onSaved }: IssueFormModalProps) {
   const [form] = Form.useForm<FormValues>();
   const [saving, setSaving] = useState(false);
 
@@ -49,10 +51,11 @@ export function IssueFormModal({ open, issue, members, onClose, onSaved }: Issue
   async function handleSubmit(values: FormValues) {
     setSaving(true);
     try {
+      const effectiveQuarter = quarter ?? issue?.quarter ?? currentQuarter();
       if (issue) {
-        await issuesApi.update(issue.id, values);
+        await issuesApi.update(issue.id, { ...values, quarter: effectiveQuarter });
       } else {
-        await issuesApi.create(values);
+        await issuesApi.create({ ...values, quarter: effectiveQuarter });
       }
       onSaved();
     } catch (e) {
@@ -167,3 +170,4 @@ export function IssueFormModal({ open, issue, members, onClose, onSaved }: Issue
     </Modal>
   );
 }
+

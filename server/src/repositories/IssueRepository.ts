@@ -3,6 +3,7 @@ import { prisma } from '../lib/prisma.js';
 
 export interface IssueFilters {
   status?: IssueStatus;
+  quarter?: string;
 }
 
 export interface CreateIssueInput {
@@ -10,6 +11,7 @@ export interface CreateIssueInput {
   description?: string;
   raisedByUserId: string;
   priority: IssuePriority;
+  quarter: string;
 }
 
 export type UpdateIssueInput = Partial<Omit<CreateIssueInput, 'description'>> & {
@@ -26,6 +28,7 @@ export class IssueRepository {
       where: {
         tenantId: this.tenantId,
         ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.quarter ? { quarter: filters.quarter } : {}),
       },
       orderBy: { sortOrder: 'asc' },
     });

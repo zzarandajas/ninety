@@ -10,6 +10,11 @@ import { tenantApi, type TenantMember } from '../lib/tenantApi';
 import { useAuthStore } from '../store/authStore';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
+import { useQuarterOptions } from '../hooks/useQuarterOptions';
+import { currentQuarter } from '../lib/quarters';
+
+const QUARTER_STORAGE_KEY = 'todos.activeQuarter';
+
 const STATUS_LABEL: Record<TodoStatus, string> = {
   open: 'Pendiente',
   done: 'Completado',
@@ -27,19 +32,25 @@ export function TodosPage() {
 
   const [todos, setTodos] = useState<Todo[]>([]);
   const [members, setMembers] = useState<TenantMember[]>([]);
+  const [quarter, setQuarter] = useState<string | undefined>(() => {
+    const saved = localStorage.getItem(QUARTER_STORAGE_KEY);
+    return saved ?? currentQuarter();
+  });
   const [statusFilter, setStatusFilter] = useState<TodoStatus | undefined>(undefined);
   const [modalTodo, setModalTodo] = useState<Todo | 'new' | null>(null);
 
+  const quarterOptions = useQuarterOptions(todos.map((t) => t.quarter));
+
   function refetchTodos() {
     return todosApi
-      .list(statusFilter ? { status: statusFilter } : {})
+      .list({ status: statusFilter, quarter })
       .then(setTodos)
       .catch((e) => message.error(errorMessage(e)));
   }
 
   useEffect(() => {
     refetchTodos();
-  }, [statusFilter, activeTenantId]);
+  }, [statusFilter, quarter, activeTenantId]);
 
   useRealtimeSync((event) => {
     if (event.entity === 'todo') {
@@ -53,6 +64,15 @@ export function TodosPage() {
       .then(setMembers)
       .catch((e) => message.error(errorMessage(e)));
   }, [activeTenantId]);
+
+  function handleQuarterChange(value: string | undefined) {
+    setQuarter(value);
+    if (value) {
+      localStorage.setItem(QUARTER_STORAGE_KEY, value);
+    } else {
+      localStorage.removeItem(QUARTER_STORAGE_KEY);
+    }
+  }
 
   function handleToggle(todo: Todo) {
     const newStatus: TodoStatus = todo.status === 'done' ? 'open' : 'done';
@@ -76,9 +96,11 @@ export function TodosPage() {
     {
       title: '',
       key: 'check',
-      width: 48,
+      width: 72,
       render: (_: unknown, todo: Todo) => (
-        <Checkbox checked={todo.status === 'done'} onChange={() => handleToggle(todo)} />
+        <span style={{ display: 'inline-flex', transform: 'scale(1.7)', transformOrigin: 'left center', lineHeight: 0 }}>
+          <Checkbox checked={todo.status === 'done'} onChange={() => handleToggle(todo)} />
+        </span>
       ),
     },
     {
@@ -87,7 +109,10 @@ export function TodosPage() {
       key: 'title',
       render: (title: string, todo: Todo) => (
         <a onClick={() => setModalTodo(todo)}>
-          <Typography.Text delete={todo.status === 'done'}>{title}</Typography.Text>
+          <Space size={8}>
+            <CheckSquareOutlined style={{ color: todo.status === 'done' ? '#52c41a' : undefined }} />
+            <Typography.Text delete={todo.status === 'done'}>{title}</Typography.Text>
+          </Space>
         </a>
       ),
     },
@@ -110,6 +135,12 @@ export function TodosPage() {
       dataIndex: 'status',
       key: 'status',
       render: (s: TodoStatus) => <Tag color={s === 'done' ? 'green' : 'orange'}>{STATUS_LABEL[s]}</Tag>,
+    },
+        {
+      title: 'Trimestre',
+      dataIndex: 'quarter',
+      key: 'quarter',
+      width: 100,
     },
     ...(canDelete
       ? [
@@ -141,6 +172,15 @@ export function TodosPage() {
         <Space wrap>
           <Select
             allowClear
+            aria-label="Trimestre"
+            placeholder="Trimestre"
+            style={{ width: 160 }}
+            value={quarter}
+            onChange={handleQuarterChange}
+            options={quarterOptions}
+          />
+          <Select
+            allowClear
             aria-label="Estado"
             placeholder="Estado"
             style={{ width: 160 }}
@@ -167,6 +207,7 @@ export function TodosPage() {
           open
           todo={modalTodo === 'new' ? undefined : modalTodo}
           members={members}
+          quarter={quarter}
           onClose={() => setModalTodo(null)}
           onSaved={() => {
             setModalTodo(null);

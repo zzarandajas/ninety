@@ -1,5 +1,5 @@
 import React, { CSSProperties, ReactNode } from 'react';
-import { Skeleton, theme } from 'antd';
+import { Card, Flex, Skeleton, theme, Typography } from 'antd';
 
 const { useToken } = theme;
 
@@ -223,8 +223,67 @@ const TemplateShell: React.FC<ShellProps & { variant: keyof typeof SHELL_CFG }> 
 export const CustomTemplate: React.FC<ShellProps> = (props) => <TemplateShell variant="template" {...props} />;
 
 /** Sección dentro de una página: misma estructura, tipografía/espaciado menores. */
-export const CustomSection: React.FC<ShellProps> = (props) => <TemplateShell variant="section" {...props} />;
+interface TemplateProps {
+     entity?: string,
+     tipo?: string,
+     children?: React.ReactNode;
+     icon?: string | React.ReactNode;
+     titulo?: string | React.ReactNode;
+     subtitulo?: string | React.ReactNode;
+     extra?: React.ReactNode;
+}
 
+
+export const CustomSection: React.FC<TemplateProps> = ({  icon, children, titulo, subtitulo, extra }) => {
+
+
+     return (
+          <>
+
+               <div className="page-fade-in">
+                    <Flex
+                         align="center"
+                         gap={20}
+                         className={`custom-section-header`}
+                         style={{
+                              padding: 8,
+                              paddingLeft:10,
+                              paddingRight:10,
+                         }}
+                    >
+                         <div className={`custom-section-icon-container`}>
+                              {icon}
+                         </div>
+                         <Flex vertical style={{ flex: 1 }}>
+                              <Typography.Title level={5} className="custom-section-title">
+                                   {titulo || ' Sin titulo '}
+                              </Typography.Title>
+                              <Typography.Text type="secondary" className="custom-section-subtitle">
+                                   {subtitulo || '  '}
+                              </Typography.Text>
+                         </Flex>
+                         {extra && (
+                              <div style={{ display: 'flex', justifyContent: 'end' }}>
+                                   {extra}
+                              </div>
+                         )}
+                    </Flex>
+
+                    <div
+                         className="custom-section-content"
+                         style={{
+                              borderRadius:  16
+                         }}
+                    >
+                              {children}
+
+
+                    </div>
+               </div>
+
+          </>
+     )
+}
 /** Título compacto para tarjetas de gráfica dentro de una Surface. */
 export const ChartTitle: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { token } = useToken();

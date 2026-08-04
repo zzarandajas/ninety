@@ -16,6 +16,7 @@ const members = [{ userId: 'user-1', fullName: 'Pablo', email: 'me@example.com',
 const existingIssue = {
   id: 'issue-1',
   tenantId: 'tenant-1',
+  quarter: '2026-Q3',
   title: 'Onboarding lento',
   description: null,
   raisedByUserId: 'user-1',

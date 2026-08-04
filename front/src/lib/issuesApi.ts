@@ -6,6 +6,7 @@ export type IssuePriority = 'low' | 'medium' | 'high';
 export interface Issue {
   id: string;
   tenantId: string;
+  quarter: string;
   title: string;
   description: string | null;
   raisedByUserId: string;
@@ -19,6 +20,7 @@ export interface Issue {
 
 export interface IssueFilters {
   status?: IssueStatus;
+  quarter?: string;
 }
 
 export interface CreateIssuePayload {
@@ -26,6 +28,7 @@ export interface CreateIssuePayload {
   description?: string;
   raisedByUserId: string;
   priority: IssuePriority;
+  quarter: string;
 }
 
 export type UpdateIssuePayload = Partial<CreateIssuePayload> & {
@@ -36,6 +39,7 @@ export type UpdateIssuePayload = Partial<CreateIssuePayload> & {
 function buildQuery(filters: IssueFilters): string {
   const params = new URLSearchParams();
   if (filters.status) params.set('status', filters.status);
+  if (filters.quarter) params.set('quarter', filters.quarter);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

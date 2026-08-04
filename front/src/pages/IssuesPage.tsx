@@ -13,6 +13,10 @@ import { reorderIds } from '../lib/reorder';
 import { tenantApi, type TenantMember } from '../lib/tenantApi';
 import { useAuthStore } from '../store/authStore';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useQuarterOptions } from '../hooks/useQuarterOptions';
+import { currentQuarter } from '../lib/quarters';
+
+const QUARTER_STORAGE_KEY = 'issues.activeQuarter';
 
 const STATUS_LABEL: Record<IssueStatus, string> = {
   open: 'Open',
@@ -53,10 +57,6 @@ function DragHandle() {
 function DraggableRow(props: HTMLAttributes<HTMLTableRowElement> & { 'data-row-key': string }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: props['data-row-key'],
-    // dnd-kit defaults `attributes.role` to "button", which as an explicit role
-    // attribute overrides the <tr>'s implicit "row" role in the accessibility
-    // tree (explicit role always wins). Override it back to "row" so this stays
-    // a real table row for assistive tech and for role-based queries.
     attributes: { role: 'row' },
   });
   const style: CSSProperties = {
@@ -83,21 +83,26 @@ export function IssuesPage() {
   const activeTenantId = useAuthStore((state) => state.activeTenantId);
   const [issues, setIssues] = useState<Issue[]>([]);
   const [members, setMembers] = useState<TenantMember[]>([]);
+  const [quarter, setQuarter] = useState<string | undefined>(() => {
+    const saved = localStorage.getItem(QUARTER_STORAGE_KEY);
+    return saved ?? currentQuarter();
+  });
   const [statusFilter, setStatusFilter] = useState<IssueStatus | undefined>(undefined);
   const [modalIssue, setModalIssue] = useState<Issue | 'new' | null>(null);
 
+  const quarterOptions = useQuarterOptions(issues.map((i) => i.quarter));
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   function refetchIssues() {
     return issuesApi
-      .list(statusFilter ? { status: statusFilter } : {})
+      .list({ status: statusFilter, quarter })
       .then(setIssues)
       .catch((e) => message.error(errorMessage(e)));
   }
 
   useEffect(() => {
     refetchIssues();
-  }, [statusFilter, activeTenantId]);
+  }, [statusFilter, quarter, activeTenantId]);
 
   useRealtimeSync((event) => {
     if (event.entity === 'issue') {
@@ -112,6 +117,15 @@ export function IssuesPage() {
       .catch((e) => message.error(errorMessage(e)));
   }, [activeTenantId]);
 
+  function handleQuarterChange(value: string | undefined) {
+    setQuarter(value);
+    if (value) {
+      localStorage.setItem(QUARTER_STORAGE_KEY, value);
+    } else {
+      localStorage.removeItem(QUARTER_STORAGE_KEY);
+    }
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -120,10 +134,6 @@ export function IssuesPage() {
     setIssues(newIds.map((id) => issues.find((issue) => issue.id === id)!));
     issuesApi.reorder(newIds).catch((e) => {
       message.error(errorMessage(e));
-      // Roll back to the server's current state rather than this drag's local
-      // snapshot: if a second drag started and its PATCH already resolved
-      // before this one's failed, reverting to `previous` would silently
-      // discard that already-confirmed reorder. Refetching is race-safe.
       refetchIssues();
     });
   }
@@ -153,6 +163,12 @@ export function IssuesPage() {
         return <MemberCell member={member} fallback="—" />;
       },
     },
+        {
+      title: 'Trimestre',
+      dataIndex: 'quarter',
+      key: 'quarter',
+      width: 100,
+    },
   ];
 
   return (
@@ -162,6 +178,15 @@ export function IssuesPage() {
       subtitle="Backlog de issues priorizados para IDS: identificar, discutir y resolver."
       extra={
         <Space wrap>
+          <Select
+            allowClear
+            aria-label="Trimestre"
+            placeholder="Trimestre"
+            style={{ width: 160 }}
+            value={quarter}
+            onChange={handleQuarterChange}
+            options={quarterOptions}
+          />
           <Select
             allowClear
             aria-label="Estado"
@@ -195,6 +220,7 @@ export function IssuesPage() {
           open
           issue={modalIssue === 'new' ? undefined : modalIssue}
           members={members}
+          quarter={quarter}
           onClose={() => setModalIssue(null)}
           onSaved={() => {
             setModalIssue(null);

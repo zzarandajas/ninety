@@ -32,13 +32,13 @@ describe('todosApi', () => {
     vi.mocked(apiFetch).mockResolvedValue({ id: 'todo-1' });
     const { todosApi } = await import('./todosApi');
 
-    await todosApi.create({ title: 'x', ownerUserId: 'user-1', originatingMeetingId: 'meeting-1' });
+    await todosApi.create({ quarter: '2026-Q3', title: 'x', ownerUserId: 'user-1', originatingMeetingId: 'meeting-1' });
 
     expect(apiFetch).toHaveBeenCalledWith(
       '/todos',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ title: 'x', ownerUserId: 'user-1', originatingMeetingId: 'meeting-1' }),
+        body: JSON.stringify({ quarter: '2026-Q3', title: 'x', ownerUserId: 'user-1', originatingMeetingId: 'meeting-1' }),
       })
     );
   });

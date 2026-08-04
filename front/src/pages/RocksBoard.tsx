@@ -11,6 +11,7 @@ import { tenantApi, type TenantMember } from '../lib/tenantApi';
 import { useAuthStore } from '../store/authStore';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useQuarterOptions } from '../hooks/useQuarterOptions';
+import { CustomSection } from '../components/Templates';
 
 const ROCK_STATUS_CONFIG: Record<RockStatus, { label: string; color: string }> = {
   on_track: { label: 'On track', color: 'success' },
@@ -114,7 +115,12 @@ export function RocksBoard() {
       title: 'Título',
       dataIndex: 'title',
       key: 'title',
-      render: (title: string) => <Typography.Text strong>{title}</Typography.Text>,
+      render: (title: string, rock: Rock) => (
+        <Space size={8}>
+          <Icons.RocketOutlined style={{ color: rock.status === 'done' ? '#52c41a' : '#722ed1' }} />
+          <Typography.Text strong>{title}</Typography.Text>
+        </Space>
+      ),
     },
     {
       title: 'Tipo',
@@ -211,6 +217,7 @@ export function RocksBoard() {
   return (
     <Template
       title="Rocks"
+      icon={<Icons.RocketOutlined />}
       subtitle="Rocks de empresa y personales del periodo: estado, milestones y vencimientos."
       extra={
         <Button icon={<Icons.PlusOutlined />} type="primary" onClick={() => setModalRock('new')}>
@@ -218,63 +225,74 @@ export function RocksBoard() {
         </Button>
       }
     >
-      <Space style={{ marginBottom: 24 }} wrap>
-        <Select
-          allowClear
-          aria-label="Trimestre"
-          placeholder="Trimestre"
-          style={{ width: 160 }}
-          value={quarter}
-          onChange={handleQuarterChange}
-          options={quarterOptions}
-        />
-        <UserSelect
-          allowClear
-          ariaLabel="Owner"
-          placeholder="Owner"
-          style={{ width: 200 }}
-          members={members}
-          value={ownerUserId}
-          onChange={setOwnerUserId}
-        />
-        <Select
-          aria-label="Tipo de Rock"
-          placeholder="Tipo de Rock"
-          style={{ width: 170 }}
-          value={rockType}
-          onChange={setRockType}
-          options={[
-            { value: 'all', label: 'Todos los tipos' },
-            { value: 'company', label: '🏢 Empresa' },
-            { value: 'personal', label: '👤 Personal' },
-          ]}
-        />
-      </Space>
 
-      <Table
-        className="glass-panel"
-        dataSource={sortedRocks}
-        columns={columns}
-        rowKey="id"
-        pagination={false}
-        loading={loading}
-        locale={{ emptyText: 'Sin rocks' }}
-        size="small"
-        onRow={(rock: Rock) => ({
-          onClick: () => setModalRock(rock),
-          style: { cursor: 'pointer' },
-        })}
-      />
+      <CustomSection
+        titulo={'Filtros'}
+        icon={<Icons.FilterOutlined />}
+        extra={
+          <Space wrap>
+            <Select
+              allowClear
+              aria-label="Trimestre"
+              placeholder="Trimestre"
+              style={{ width: 160 }}
+              value={quarter}
+              onChange={handleQuarterChange}
+              options={quarterOptions}
+            />
+            <UserSelect
+              allowClear
+              ariaLabel="Owner"
+              placeholder="Owner"
+              style={{ width: 200 }}
+              members={members}
+              value={ownerUserId}
+              onChange={setOwnerUserId}
+            />
+            <Select
+              aria-label="Tipo de Rock"
+              placeholder="Tipo de Rock"
+              style={{ width: 170 }}
+              value={rockType}
+              onChange={setRockType}
+              options={[
+                { value: 'all', label: 'Todos los tipos' },
+                { value: 'company', label: '🏢 Empresa' },
+                { value: 'personal', label: '👤 Personal' },
+              ]}
+            />
+          </Space>
+        }
+      >
 
-      {modalRock && (
-        <RockFormModal
-          open
-          rock={modalRock === 'new' ? undefined : modalRock}
-          members={members}
-          onClose={closeModal}
-          onSaved={closeModal}
+
+
+
+        <Table
+          className="glass-panel"
+          dataSource={sortedRocks}
+          columns={columns}
+          rowKey="id"
+          pagination={false}
+          loading={loading}
+          locale={{ emptyText: 'Sin rocks' }}
+          size="small"
+          onRow={(rock: Rock) => ({
+            onClick: () => setModalRock(rock),
+            style: { cursor: 'pointer' },
+          })}
         />
-      )}
+
+        {modalRock && (
+          <RockFormModal
+            open
+            rock={modalRock === 'new' ? undefined : modalRock}
+            members={members}
+            onClose={closeModal}
+            onSaved={closeModal}
+          />
+        )}
+      </CustomSection>
     </Template>
   );
 }

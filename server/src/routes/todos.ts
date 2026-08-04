@@ -4,11 +4,14 @@ import { requireTenant } from '../middleware/resolveTenantContext.js';
 import { TodoRepository } from '../repositories/TodoRepository.js';
 import { publishTenantEvent } from '../lib/redis.js';
 
+const quarterSchema = z.string().regex(/^\d{4}-Q[1-4]$/, 'Formato de trimestre inválido, usa YYYY-Qn');
+
 const statusEnum = z.enum(['open', 'done']);
 
 const createTodoSchema = z.object({
   title: z.string().min(1),
   ownerUserId: z.string().min(1),
+  quarter: quarterSchema,
   dueDate: z.coerce.date().optional(),
   originatingMeetingId: z.string().optional(),
 });
@@ -16,6 +19,7 @@ const createTodoSchema = z.object({
 const updateTodoSchema = z.object({
   title: z.string().min(1).optional(),
   ownerUserId: z.string().min(1).optional(),
+  quarter: quarterSchema.optional(),
   dueDate: z.coerce.date().nullable().optional(),
   status: statusEnum.optional(),
 });
@@ -23,6 +27,7 @@ const updateTodoSchema = z.object({
 const listTodosQuerySchema = z.object({
   status: statusEnum.optional(),
   ownerUserId: z.string().optional(),
+  quarter: quarterSchema.optional(),
 });
 
 export default async function todoRoutes(app: FastifyInstance): Promise<void> {

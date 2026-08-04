@@ -273,6 +273,7 @@ enum MeetingStatus {
 model L10Meeting {
   id                String        @id @default(uuid())
   tenantId          String        @map("tenant_id")
+  quarter           String
   meetingDate       DateTime      @map("meeting_date")
   facilitatorUserId String        @map("facilitator_user_id")
   status            MeetingStatus @default(scheduled)
@@ -305,6 +306,7 @@ model L10Meeting {
   todos       Todo[]
 
   @@unique([id, tenantId])
+  @@index([tenantId, quarter])
   @@index([tenantId, meetingDate])
   @@map("l10_meetings")
 }
@@ -371,6 +373,7 @@ enum IssuePriority {
 model Issue {
   id              String        @id @default(uuid())
   tenantId        String        @map("tenant_id")
+  quarter         String
   title           String
   description     String?
   raisedByUserId  String        @map("raised_by_user_id")
@@ -389,6 +392,7 @@ model Issue {
   createdBy User?  @relation("IssueCreatedBy", fields: [createdByUserId], references: [id])
   updatedBy User?  @relation("IssueUpdatedBy", fields: [updatedByUserId], references: [id])
 
+  @@index([tenantId, quarter])
   @@index([tenantId, status])
   @@map("issues")
 }
@@ -405,6 +409,7 @@ enum TodoStatus {
 model Todo {
   id                   String     @id @default(uuid())
   tenantId             String     @map("tenant_id")
+  quarter              String
   title                String
   ownerUserId          String     @map("owner_user_id")
   dueDate              DateTime?  @map("due_date")
@@ -421,6 +426,7 @@ model Todo {
   updatedBy          User?       @relation("TodoUpdatedBy", fields: [updatedByUserId], references: [id])
   originatingMeeting L10Meeting? @relation(fields: [originatingMeetingId, tenantId], references: [id, tenantId])
 
+  @@index([tenantId, quarter])
   @@index([tenantId, status])
   @@map("todos")
 }

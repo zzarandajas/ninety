@@ -1,5 +1,5 @@
 import { CalendarOutlined, CheckOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, DatePicker, Form, Modal, Popconfirm, Space, Table, Tag, message } from 'antd';
+import { Button, DatePicker, Form, Modal, Popconfirm, Space, Table, Tag, message, Select } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -11,6 +11,10 @@ import { l10Api, type L10Meeting, type MeetingStatus } from '../lib/l10Api';
 import { tenantApi, type TenantMember } from '../lib/tenantApi';
 import { useAuthStore } from '../store/authStore';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { useQuarterOptions } from '../hooks/useQuarterOptions';
+import { currentQuarter } from '../lib/quarters';
+
+const QUARTER_STORAGE_KEY = 'l10.activeQuarter';
 
 const STATUS_LABEL: Record<MeetingStatus, string> = {
   scheduled: 'Scheduled',
@@ -33,20 +37,26 @@ export function L10MeetingsPage() {
   const navigate = useNavigate();
   const [meetings, setMeetings] = useState<L10Meeting[]>([]);
   const [members, setMembers] = useState<TenantMember[]>([]);
+  const [quarter, setQuarter] = useState<string | undefined>(() => {
+    const saved = localStorage.getItem(QUARTER_STORAGE_KEY);
+    return saved ?? currentQuarter();
+  });
   const [creating, setCreating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [form] = Form.useForm<CreateFormValues>();
 
+  const quarterOptions = useQuarterOptions(meetings.map((m) => m.quarter));
+
   function fetchMeetings() {
     l10Api
-      .list()
+      .list({ quarter })
       .then(setMeetings)
       .catch((e) => message.error(errorMessage(e)));
   }
 
   useEffect(() => {
     fetchMeetings();
-  }, [activeTenantId]);
+  }, [quarter, activeTenantId]);
 
   useRealtimeSync((event) => {
     if (event.entity === 'l10_meeting') {
@@ -65,12 +75,22 @@ export function L10MeetingsPage() {
     if (creating) form.setFieldsValue({ meetingDate: dayjs(), facilitatorUserId: authUser?.id });
   }, [creating, authUser?.id, form]);
 
+  function handleQuarterChange(value: string | undefined) {
+    setQuarter(value);
+    if (value) {
+      localStorage.setItem(QUARTER_STORAGE_KEY, value);
+    } else {
+      localStorage.removeItem(QUARTER_STORAGE_KEY);
+    }
+  }
+
   async function handleCreate(values: CreateFormValues) {
     setSaving(true);
     try {
       const meeting = await l10Api.create({
         meetingDate: values.meetingDate.toISOString(),
         facilitatorUserId: values.facilitatorUserId,
+        quarter: quarter ?? currentQuarter(),
       });
       setCreating(false);
       navigate(`/l10/${meeting.id}`);
@@ -152,9 +172,20 @@ export function L10MeetingsPage() {
       icon={<CalendarOutlined />}
       subtitle="Reuniones de nivel 1 (L10): históricas, facilitador y rating."
       extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>
-          Nueva reunión
-        </Button>
+        <Space wrap>
+          <Select
+            allowClear
+            aria-label="Trimestre"
+            placeholder="Trimestre"
+            style={{ width: 160 }}
+            value={quarter}
+            onChange={handleQuarterChange}
+            options={quarterOptions}
+          />
+          <Button type="primary" icon={<PlusOutlined />} onClick={() => setCreating(true)}>
+            Nueva reunión
+          </Button>
+        </Space>
       }
     >
       <Table className="glass-panel" dataSource={meetings} columns={columns} rowKey="id" pagination={false} />

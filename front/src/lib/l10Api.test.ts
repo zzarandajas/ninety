@@ -32,13 +32,13 @@ describe('l10Api', () => {
     vi.mocked(apiFetch).mockResolvedValue({ id: 'meeting-1' });
     const { l10Api } = await import('./l10Api');
 
-    await l10Api.create({ meetingDate: '2026-08-03T00:00:00.000Z', facilitatorUserId: 'user-1' });
+    await l10Api.create({ quarter: '2026-Q3', meetingDate: '2026-08-03T00:00:00.000Z', facilitatorUserId: 'user-1' });
 
     expect(apiFetch).toHaveBeenCalledWith(
       '/l10',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ meetingDate: '2026-08-03T00:00:00.000Z', facilitatorUserId: 'user-1' }),
+        body: JSON.stringify({ quarter: '2026-Q3', meetingDate: '2026-08-03T00:00:00.000Z', facilitatorUserId: 'user-1' }),
       })
     );
   });

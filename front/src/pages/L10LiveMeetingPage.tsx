@@ -16,6 +16,7 @@ import { tenantApi, type TenantMember } from '../lib/tenantApi';
 import { todosApi, type Todo } from '../lib/todosApi';
 import { useAuthStore } from '../store/authStore';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { currentQuarter } from '../lib/quarters';
 
 type Section = 'segue' | 'scorecard' | 'rocks' | 'headlines' | 'todos' | 'ids' | 'conclude';
 
@@ -332,6 +333,7 @@ export function L10LiveMeetingPage() {
         description,
         priority: 'high',
         raisedByUserId: currentUser.id,
+        quarter: meeting?.quarter ?? currentQuarter(),
       });
       setIssues((prev) => [newIssue, ...prev]);
       message.success(`Issue añadido a IDS: "${title}"`);

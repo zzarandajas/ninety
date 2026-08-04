@@ -660,6 +660,69 @@ body {
   color: #991b1b !important;
 }
 
+
+
+/* CustomSection classes */
+.custom-section-header {
+  margin-bottom: 12px;
+  background: #f9f9f9eb;
+  backdrop-filter: blur(10px);
+  border-radius: 16px;
+  border: 1px solid rgb(221 220 220 / 30%);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+.custom-section-header-dark {
+  background: rgba(30, 10, 40, 0.6) !important;
+  border: 1px solid rgba(101, 27, 110, 0.3) !important;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4) !important;
+}
+
+.custom-section-icon-container {
+  background: var(--moradoClaroAptica);
+  padding: 6px;
+  color: var(--moradoAptica);
+  border-radius: 6px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.3s, color 0.3s;
+}
+
+.custom-section-icon-container-dark {
+  background: rgba(101, 27, 110, 0.25) !important;
+  color: #ffffff !important;
+}
+
+.custom-section-title {
+  margin: 0 !important;
+  letter-spacing: -0.02em !important;
+  color: var(--moradoAptica) !important;
+}
+
+.custom-section-subtitle {
+  font-size: 15px !important;
+  font-weight: 400 !important;
+}
+
+.custom-section-content {
+  overflow: hidden;
+  height: calc(100% - 100px);
+}
+
+.custom-section-card {
+  border-radius: 12px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  transition: background 0.3s, box-shadow 0.3s;
+}
+
+.custom-section-card-dark {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+}
+
+
 /* ---------- Modals & Drawers Corporate Glass Styling ---------- */
 
 .ant-modal-mask,
@@ -730,6 +793,15 @@ body {
 
 /* Modal form controls polish */
 .ant-form-item-label label {
+  font-weight: 600 !important;
+  color: #334155 !important;
+  font-size: 11px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+}
+
+/* Table headers: same treatment as form labels */
+.ant-table-thead > tr > th {
   font-weight: 600 !important;
   color: #334155 !important;
   font-size: 11px !important;

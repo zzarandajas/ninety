@@ -18,6 +18,7 @@ export interface MeetingRating {
 export interface L10Meeting {
   id: string;
   tenantId: string;
+  quarter: string;
   meetingDate: string;
   facilitatorUserId: string;
   status: MeetingStatus;
@@ -45,16 +46,19 @@ export interface L10AgendaItemLog {
 
 export interface MeetingFilters {
   status?: MeetingStatus;
+  quarter?: string;
 }
 
 export interface CreateMeetingPayload {
   meetingDate: string;
   facilitatorUserId: string;
+  quarter: string;
 }
 
 export type UpdateMeetingPayload = Partial<{
   meetingDate: string;
   facilitatorUserId: string;
+  quarter: string;
   status: MeetingStatus;
   segueNotes: string | null;
   headlines: string | null;
@@ -85,6 +89,7 @@ export interface CreateAgendaItemPayload {
 function buildQuery(filters: MeetingFilters): string {
   const params = new URLSearchParams();
   if (filters.status) params.set('status', filters.status);
+  if (filters.quarter) params.set('quarter', filters.quarter);
   const qs = params.toString();
   return qs ? `?${qs}` : '';
 }

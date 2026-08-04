@@ -4,6 +4,8 @@ import { requireTenant } from '../middleware/resolveTenantContext.js';
 import { IssueRepository } from '../repositories/IssueRepository.js';
 import { publishTenantEvent } from '../lib/redis.js';
 
+const quarterSchema = z.string().regex(/^\d{4}-Q[1-4]$/, 'Formato de trimestre inválido, usa YYYY-Qn');
+
 const statusEnum = z.enum(['open', 'discussing', 'solved', 'dropped']);
 const priorityEnum = z.enum(['low', 'medium', 'high']);
 
@@ -12,6 +14,7 @@ const createIssueSchema = z.object({
   description: z.string().optional(),
   raisedByUserId: z.string().min(1),
   priority: priorityEnum.default('medium'),
+  quarter: quarterSchema,
 });
 
 const updateIssueSchema = z.object({
@@ -19,12 +22,14 @@ const updateIssueSchema = z.object({
   description: z.string().nullable().optional(),
   raisedByUserId: z.string().min(1).optional(),
   priority: priorityEnum.optional(),
+  quarter: quarterSchema.optional(),
   status: statusEnum.optional(),
   resolutionNotes: z.string().nullable().optional(),
 });
 
 const listIssuesQuerySchema = z.object({
   status: statusEnum.optional(),
+  quarter: quarterSchema.optional(),
 });
 
 const reorderIssuesSchema = z.object({

@@ -7,11 +7,14 @@ import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
 import { UserSelect } from './UserSelect';
 
+import { currentQuarter } from '../lib/quarters';
+
 export interface TodoFormModalProps {
   open: boolean;
   todo?: Todo;
   members: TenantMember[];
   meetingId?: string;
+  quarter?: string;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -27,7 +30,7 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
 }
 
-export function TodoFormModal({ open, todo, members, meetingId, onClose, onSaved }: TodoFormModalProps) {
+export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose, onSaved }: TodoFormModalProps) {
   const [form] = Form.useForm<FormValues>();
   const [saving, setSaving] = useState(false);
 
@@ -43,12 +46,21 @@ export function TodoFormModal({ open, todo, members, meetingId, onClose, onSaved
     setSaving(true);
     try {
       const dueDate = values.dueDate ? values.dueDate.toISOString() : undefined;
+      const effectiveQuarter = quarter ?? todo?.quarter ?? currentQuarter();
+
       if (todo) {
-        await todosApi.update(todo.id, { title: values.title, ownerUserId: values.ownerUserId, dueDate: dueDate ?? null, status: values.status });
+        await todosApi.update(todo.id, {
+          title: values.title,
+          ownerUserId: values.ownerUserId,
+          dueDate: dueDate ?? null,
+          status: values.status,
+          quarter: effectiveQuarter,
+        });
       } else {
         await todosApi.create({
           title: values.title,
           ownerUserId: values.ownerUserId,
+          quarter: effectiveQuarter,
           dueDate,
           ...(meetingId ? { originatingMeetingId: meetingId } : {}),
         });

@@ -7,17 +7,21 @@ import { publishTenantEvent } from '../lib/redis.js';
 import { TenantMemberRepository } from '../repositories/TenantMemberRepository.js';
 import { HttpError } from '../lib/httpError.js';
 
+const quarterSchema = z.string().regex(/^\d{4}-Q[1-4]$/, 'Formato de trimestre inválido, usa YYYY-Qn');
+
 const meetingStatusEnum = z.enum(['scheduled', 'in_progress', 'completed']);
 const agendaItemTypeEnum = z.enum(['rock_review', 'issue', 'todo']);
 
 const createMeetingSchema = z.object({
   meetingDate: z.coerce.date(),
   facilitatorUserId: z.string().min(1),
+  quarter: quarterSchema,
 });
 
 const updateMeetingSchema = z.object({
   meetingDate: z.coerce.date().optional(),
   facilitatorUserId: z.string().min(1).optional(),
+  quarter: quarterSchema.optional(),
   status: meetingStatusEnum.optional(),
   timerStartedAt: z.coerce.date().nullable().optional(),
   timerAccumulatedSeconds: z.number().int().optional(),
@@ -32,6 +36,7 @@ const updateMeetingSchema = z.object({
 
 const listMeetingsQuerySchema = z.object({
   status: meetingStatusEnum.optional(),
+  quarter: quarterSchema.optional(),
 });
 
 const closeMeetingSchema = z.object({

@@ -4,11 +4,13 @@ import { prisma } from '../lib/prisma.js';
 export interface TodoFilters {
   status?: TodoStatus;
   ownerUserId?: string;
+  quarter?: string;
 }
 
 export interface CreateTodoInput {
   title: string;
   ownerUserId: string;
+  quarter: string;
   dueDate?: Date;
   originatingMeetingId?: string;
 }
@@ -16,6 +18,7 @@ export interface CreateTodoInput {
 export type UpdateTodoInput = Partial<{
   title: string;
   ownerUserId: string;
+  quarter: string;
   dueDate: Date | null;
   status: TodoStatus;
 }>;
@@ -29,6 +32,7 @@ export class TodoRepository {
         tenantId: this.tenantId,
         ...(filters.status ? { status: filters.status } : {}),
         ...(filters.ownerUserId ? { ownerUserId: filters.ownerUserId } : {}),
+        ...(filters.quarter ? { quarter: filters.quarter } : {}),
       },
       orderBy: { dueDate: 'asc' },
     });
