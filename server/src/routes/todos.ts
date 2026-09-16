@@ -9,7 +9,8 @@ const quarterSchema = z.string().regex(/^\d{4}-Q[1-4]$/, 'Formato de trimestre i
 const statusEnum = z.enum(['open', 'done']);
 
 const createTodoSchema = z.object({
-  title: z.string().min(1),
+  title: z.string().min(1).max(255),
+  description: z.string().optional(),
   ownerUserId: z.string().min(1),
   quarter: quarterSchema,
   dueDate: z.coerce.date().optional(),
@@ -17,7 +18,8 @@ const createTodoSchema = z.object({
 });
 
 const updateTodoSchema = z.object({
-  title: z.string().min(1).optional(),
+  title: z.string().min(1).max(255).optional(),
+  description: z.string().nullable().optional(),
   ownerUserId: z.string().min(1).optional(),
   quarter: quarterSchema.optional(),
   dueDate: z.coerce.date().nullable().optional(),

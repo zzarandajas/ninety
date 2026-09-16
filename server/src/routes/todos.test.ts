@@ -17,7 +17,9 @@ import { TodoRepository } from '../repositories/TodoRepository.js';
 const mockTodo = {
   id: 'todo-1',
   tenantId: 'tenant-a',
+  quarter: '2026-Q3',
   title: 'Enviar propuesta a cliente X',
+  description: null,
   ownerUserId: 'user-1',
   dueDate: null,
   status: 'open',
@@ -60,11 +62,28 @@ describe('routes/todos', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/todos',
-      payload: { title: 'Enviar propuesta a cliente X', ownerUserId: 'user-1' },
+      payload: { title: 'Enviar propuesta a cliente X', ownerUserId: 'user-1', quarter: '2026-Q3' },
     });
     expect(res.statusCode).toBe(201);
     expect(repoMock.create).toHaveBeenCalledWith(
-      { title: 'Enviar propuesta a cliente X', ownerUserId: 'user-1' },
+      { title: 'Enviar propuesta a cliente X', ownerUserId: 'user-1', quarter: '2026-Q3' },
+      'user-1'
+    );
+  });
+
+  it('POST /todos accepts an optional description', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/todos',
+      payload: {
+        title: 'x',
+        description: '<p>Contexto</p>',
+        ownerUserId: 'user-1',
+        quarter: '2026-Q3',
+      },
+    });
+    expect(repoMock.create).toHaveBeenCalledWith(
+      expect.objectContaining({ description: '<p>Contexto</p>' }),
       'user-1'
     );
   });
@@ -73,7 +92,7 @@ describe('routes/todos', () => {
     await app.inject({
       method: 'POST',
       url: '/todos',
-      payload: { title: 'x', ownerUserId: 'user-1', originatingMeetingId: 'meeting-1' },
+      payload: { title: 'x', ownerUserId: 'user-1', quarter: '2026-Q3', originatingMeetingId: 'meeting-1' },
     });
     expect(repoMock.create).toHaveBeenCalledWith(
       expect.objectContaining({ originatingMeetingId: 'meeting-1' }),

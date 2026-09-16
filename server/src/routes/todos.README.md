@@ -9,9 +9,12 @@ requieren `Authorization: Bearer <token>` y `X-Tenant-Id`.
 - `GET /todos?status=open|done&ownerUserId=<id>` — lista los todos del tenant activo, ordenados
   por `dueDate` ascendente (los que no tienen fecha van al final). Ambos filtros son opcionales
   y combinables.
-- `POST /todos` — crea un todo. Body: `{ title, ownerUserId, dueDate?, originatingMeetingId? }`.
-- `PATCH /todos/:id` — actualiza cualquier subconjunto de `title`, `ownerUserId`, `dueDate`,
-  `status`. `originatingMeetingId` no es editable — se fija solo al crear.
+- `POST /todos` — crea un todo. Body: `{ title, description?, ownerUserId, quarter, dueDate?, originatingMeetingId? }`.
+  `title` es texto plano (máx. 255 caracteres) — es lo que se ve en las tablas (Todos, Dashboard,
+  L10). `description` es HTML (editor Quill), opcional, para detalle/contexto adicional; no se
+  muestra en listados, solo en el modal de edición.
+- `PATCH /todos/:id` — actualiza cualquier subconjunto de `title`, `description`, `ownerUserId`,
+  `quarter`, `dueDate`, `status`. `originatingMeetingId` no es editable — se fija solo al crear.
 - `DELETE /todos/:id` — 204 en éxito, 404 si no existía.
 
 ## Sin página propia

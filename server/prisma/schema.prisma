@@ -412,7 +412,8 @@ model Todo {
   id                   String     @id @default(uuid())
   tenantId             String     @map("tenant_id")
   quarter              String
-  title                String
+  title                String     @db.VarChar(255)
+  description          String?
   ownerUserId          String     @map("owner_user_id")
   dueDate              DateTime?  @map("due_date")
   status               TodoStatus @default(open)

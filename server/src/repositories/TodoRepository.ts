@@ -9,6 +9,7 @@ export interface TodoFilters {
 
 export interface CreateTodoInput {
   title: string;
+  description?: string;
   ownerUserId: string;
   quarter: string;
   dueDate?: Date;
@@ -17,6 +18,7 @@ export interface CreateTodoInput {
 
 export type UpdateTodoInput = Partial<{
   title: string;
+  description: string | null;
   ownerUserId: string;
   quarter: string;
   dueDate: Date | null;

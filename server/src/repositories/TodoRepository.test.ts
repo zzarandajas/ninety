@@ -25,6 +25,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     title: 'Enviar propuesta a cliente X',
     ownerUserId: 'user-1',
     quarter: '2026-Q3',
+    description: null,
     dueDate: null,
     status: 'open',
     originatingMeetingId: null,

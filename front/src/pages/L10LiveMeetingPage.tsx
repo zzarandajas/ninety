@@ -965,10 +965,20 @@ export function L10LiveMeetingPage() {
                       <a onClick={() => setEditingTodo(record)} style={{ fontWeight: 600 }}>
                         <Space size={8} align="start">
                           <Icons.CheckSquareOutlined style={{ color: record.status === 'done' ? '#52c41a' : undefined, marginTop: 3 }} />
-                          <RichTextView
-                            html={title}
-                            style={{ textDecoration: record.status === 'done' ? 'line-through' : undefined, color: 'inherit' }}
-                          />
+                          <div>
+                            <Typography.Text
+                              style={{ textDecoration: record.status === 'done' ? 'line-through' : undefined, color: 'inherit' }}
+                            >
+                              {title}
+                            </Typography.Text>
+                            {!isHtmlEmpty(record.description) && (
+                              <RichTextView
+                                html={record.description}
+                                lineClamp={1}
+                                style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', maxWidth: 300 }}
+                              />
+                            )}
+                          </div>
                         </Space>
                       </a>
                     )
@@ -1192,7 +1202,7 @@ export function L10LiveMeetingPage() {
                       >
                         <Space size={8} align="start" style={{ flex: 1, minWidth: 0 }}>
                           <Icons.CheckSquareOutlined style={{ color: todo.status === 'done' ? '#52c41a' : undefined, marginTop: 3, flexShrink: 0 }} />
-                          <RichTextView html={todo.title} style={{ color: 'inherit' }} />
+                          <Typography.Text style={{ color: 'inherit' }}>{todo.title}</Typography.Text>
                         </Space>
                         <Space size={16} style={{ flexShrink: 0 }}>
                           <MemberCell member={owner} />

@@ -18,6 +18,7 @@ const existingTodo = {
   tenantId: 'tenant-1',
   quarter: '2026-Q3',
   title: 'Enviar propuesta a cliente X',
+  description: null,
   ownerUserId: 'user-1',
   dueDate: null,
   status: 'open' as const,

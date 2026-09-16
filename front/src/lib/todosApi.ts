@@ -7,6 +7,7 @@ export interface Todo {
   tenantId: string;
   quarter: string;
   title: string;
+  description: string | null;
   ownerUserId: string;
   dueDate: string | null;
   status: TodoStatus;
@@ -21,6 +22,7 @@ export interface TodoFilters {
 
 export interface CreateTodoPayload {
   title: string;
+  description?: string;
   ownerUserId: string;
   quarter: string;
   dueDate?: string;
@@ -29,6 +31,7 @@ export interface CreateTodoPayload {
 
 export type UpdateTodoPayload = Partial<{
   title: string;
+  description: string | null;
   ownerUserId: string;
   quarter: string;
   dueDate: string | null;

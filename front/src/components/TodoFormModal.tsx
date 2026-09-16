@@ -1,5 +1,5 @@
 import { CheckSquareOutlined, CloseOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
-import { Button, Col, DatePicker, Form, message, Modal, Popconfirm, Row, Select, Space } from 'antd';
+import { Button, Col, DatePicker, Form, Input, message, Modal, Popconfirm, Row, Select, Space } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { isHtmlEmpty } from '../lib/richText';
@@ -23,6 +23,7 @@ export interface TodoFormModalProps {
 
 interface FormValues {
   title: string;
+  description?: string;
   ownerUserId: string;
   dueDate?: dayjs.Dayjs;
   status?: TodoStatus;
@@ -39,7 +40,13 @@ export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose
   useEffect(() => {
     form.setFieldsValue(
       todo
-        ? { title: todo.title, ownerUserId: todo.ownerUserId, dueDate: todo.dueDate ? dayjs(todo.dueDate) : undefined, status: todo.status }
+        ? {
+            title: todo.title,
+            description: todo.description ?? undefined,
+            ownerUserId: todo.ownerUserId,
+            dueDate: todo.dueDate ? dayjs(todo.dueDate) : undefined,
+            status: todo.status,
+          }
         : {}
     );
   }, [todo, form]);
@@ -53,6 +60,7 @@ export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose
       if (todo) {
         await todosApi.update(todo.id, {
           title: values.title,
+          description: isHtmlEmpty(values.description) ? null : values.description,
           ownerUserId: values.ownerUserId,
           dueDate: dueDate ?? null,
           status: values.status,
@@ -61,6 +69,7 @@ export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose
       } else {
         await todosApi.create({
           title: values.title,
+          description: isHtmlEmpty(values.description) ? undefined : values.description,
           ownerUserId: values.ownerUserId,
           quarter: effectiveQuarter,
           dueDate,
@@ -104,15 +113,14 @@ export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
         <Form.Item
           name="title"
-          label="Descripción de la tarea"
-          rules={[
-            {
-              validator: (_, value) =>
-                isHtmlEmpty(value) ? Promise.reject(new Error('Introduce un título')) : Promise.resolve(),
-            },
-          ]}
+          label="Título de la tarea"
+          rules={[{ required: true, message: 'Introduce un título' }]}
         >
-          <RichTextEditor placeholder="Ej. Enviar propuesta revisada a Cliente X" />
+          <Input maxLength={255} placeholder="Ej. Enviar propuesta revisada a Cliente X" />
+        </Form.Item>
+
+        <Form.Item name="description" label="Descripción (opcional)">
+          <RichTextEditor placeholder="Añade contexto adicional para esta tarea..." />
         </Form.Item>
 
         <Row gutter={16}>

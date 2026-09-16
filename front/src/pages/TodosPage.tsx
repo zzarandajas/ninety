@@ -2,7 +2,6 @@ import * as Icons from '@ant-design/icons';
 import { Button, Checkbox, message, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
-import { RichTextView } from '../components/RichTextView';
 import { TodoFormModal } from '../components/TodoFormModal';
 import { Template } from '../components/Template';
 import { MemberCell } from '../components/UserAvatar';
@@ -113,10 +112,9 @@ export function TodosPage() {
         <a onClick={() => setModalTodo(todo)}>
           <Space size={8} align="start">
             <Icons.CheckSquareOutlined style={{ color: todo.status === 'done' ? '#52c41a' : undefined, marginTop: 3 }} />
-            <RichTextView
-              html={title}
-              style={{ textDecoration: todo.status === 'done' ? 'line-through' : undefined, color: 'inherit' }}
-            />
+            <span style={{ textDecoration: todo.status === 'done' ? 'line-through' : undefined, color: 'inherit' }}>
+              {title}
+            </span>
           </Space>
         </a>
       ),
