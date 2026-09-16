@@ -19,6 +19,7 @@ import { IssueRepository } from '../repositories/IssueRepository.js';
 const mockIssue = {
   id: 'issue-1',
   tenantId: 'tenant-a',
+  quarter: '2026-Q3',
   title: 'Slow onboarding',
   description: null,
   raisedByUserId: 'user-1',
@@ -75,17 +76,21 @@ describe('routes/issues', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/issues',
-      payload: { title: 'Slow onboarding', raisedByUserId: 'user-1', priority: 'medium' },
+      payload: { title: 'Slow onboarding', raisedByUserId: 'user-1', priority: 'medium', quarter: '2026-Q3' },
     });
     expect(res.statusCode).toBe(201);
     expect(repoMock.create).toHaveBeenCalledWith(
-      { title: 'Slow onboarding', raisedByUserId: 'user-1', priority: 'medium' },
+      { title: 'Slow onboarding', raisedByUserId: 'user-1', priority: 'medium', quarter: '2026-Q3' },
       'user-1'
     );
   });
 
   it('POST /issues defaults priority to medium when omitted', async () => {
-    await app.inject({ method: 'POST', url: '/issues', payload: { title: 'x', raisedByUserId: 'user-1' } });
+    await app.inject({
+      method: 'POST',
+      url: '/issues',
+      payload: { title: 'x', raisedByUserId: 'user-1', quarter: '2026-Q3' },
+    });
     expect(repoMock.create).toHaveBeenCalledWith(expect.objectContaining({ priority: 'medium' }), 'user-1');
   });
 
@@ -93,10 +98,16 @@ describe('routes/issues', () => {
     await app.inject({
       method: 'POST',
       url: '/issues',
-      payload: { title: 'x', raisedByUserId: 'user-1', priority: 'medium', createdByUserId: 'attacker-id' },
+      payload: {
+        title: 'x',
+        raisedByUserId: 'user-1',
+        priority: 'medium',
+        quarter: '2026-Q3',
+        createdByUserId: 'attacker-id',
+      },
     });
     expect(repoMock.create).toHaveBeenCalledWith(
-      { title: 'x', raisedByUserId: 'user-1', priority: 'medium' },
+      { title: 'x', raisedByUserId: 'user-1', priority: 'medium', quarter: '2026-Q3' },
       'user-1'
     );
   });

@@ -38,7 +38,7 @@ describe('TodoFormModal', () => {
     render(<TodoFormModal open members={members} onClose={vi.fn()} onSaved={onSaved} />);
 
     await userEvent.type(screen.getByLabelText(/título/i), 'Nuevo todo');
-    await userEvent.click(screen.getByLabelText('Owner'));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Owner' }));
     await userEvent.click(await screen.findByText('Pablo'));
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
 
@@ -55,7 +55,7 @@ describe('TodoFormModal', () => {
     render(<TodoFormModal open members={members} meetingId="meeting-1" onClose={vi.fn()} onSaved={vi.fn()} />);
 
     await userEvent.type(screen.getByLabelText(/título/i), 'Todo de la reunión');
-    await userEvent.click(screen.getByLabelText('Owner'));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Owner' }));
     await userEvent.click(await screen.findByText('Pablo'));
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
 
@@ -78,7 +78,7 @@ describe('TodoFormModal', () => {
     render(<TodoFormModal open todo={existingTodo} members={members} onClose={vi.fn()} onSaved={vi.fn()} />);
 
     await userEvent.click(screen.getByLabelText('Estado'));
-    await userEvent.click(await screen.findByText('Done'));
+    await userEvent.click(await screen.findByText('Completado (Done)'));
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
 
     await waitFor(() => expect(todosApi.update).toHaveBeenCalledWith('todo-1', expect.objectContaining({ status: 'done' })));

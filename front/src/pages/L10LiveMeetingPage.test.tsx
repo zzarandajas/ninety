@@ -9,7 +9,14 @@ vi.mock('../lib/l10Api', async () => {
   const actual = await vi.importActual<typeof import('../lib/l10Api')>('../lib/l10Api');
   return {
     ...actual,
-    l10Api: { get: vi.fn(), update: vi.fn(), close: vi.fn(), listAgendaItems: vi.fn(), logAgendaItem: vi.fn() },
+    l10Api: {
+      get: vi.fn(),
+      update: vi.fn(),
+      close: vi.fn(),
+      submitRating: vi.fn(),
+      listAgendaItems: vi.fn(),
+      logAgendaItem: vi.fn(),
+    },
   };
 });
 vi.mock('../lib/rocksApi', async () => {
@@ -70,6 +77,11 @@ describe('L10LiveMeetingPage', () => {
     const { todosApi } = await import('../lib/todosApi');
     const { tenantApi } = await import('../lib/tenantApi');
     vi.mocked(l10Api.get).mockResolvedValue(meeting as never);
+    // changeSection() (switching the active tab) persists via l10Api.update on every
+    // click — default it so section-switching tests don't get stuck on the loading
+    // state because the mock resolves to undefined. Tests that assert on the actual
+    // update payload still override this with a more specific mock.
+    vi.mocked(l10Api.update).mockResolvedValue(meeting as never);
     vi.mocked(l10Api.listAgendaItems).mockResolvedValue([]);
     vi.mocked(rocksApi.list).mockResolvedValue([]);
     vi.mocked(issuesApi.list).mockResolvedValue([]);
@@ -84,7 +96,9 @@ describe('L10LiveMeetingPage', () => {
   it('loads the meeting and shows the Segue section active by default', async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getByText('Segue')).toBeInTheDocument());
+    // "Segue" renders twice while active: once in the sidebar nav, once as the
+    // active AgendaSection's own header title.
+    await waitFor(() => expect(screen.getAllByText('Segue').length).toBeGreaterThan(0));
     expect(screen.getByText('Scorecard')).toBeInTheDocument();
     expect(screen.getByText('Rock Review')).toBeInTheDocument();
     expect(screen.getByText('Headlines')).toBeInTheDocument();
@@ -123,7 +137,7 @@ describe('L10LiveMeetingPage', () => {
     await userEvent.click(screen.getByText('To-Do List'));
     await userEvent.click(screen.getByRole('button', { name: /nuevo to-do/i }));
 
-    expect(await screen.findByText('Nuevo to-do', { selector: '.ant-modal-title' })).toBeInTheDocument();
+    expect(await screen.findByText('Nuevo To-Do (Compromiso a 7 días)')).toBeInTheDocument();
   });
 
   it('opens the create Issue modal from Headlines instead of auto-creating from the whole text', async () => {
@@ -146,19 +160,35 @@ describe('L10LiveMeetingPage', () => {
     expect(issuesApi.create).not.toHaveBeenCalled();
   });
 
-  it('closes the meeting with a rating and notes', async () => {
+  it('submits the current user\'s own rating and closes the meeting with notes', async () => {
     const { l10Api } = await import('../lib/l10Api');
-    vi.mocked(l10Api.close).mockResolvedValue({ ...meeting, status: 'completed', overallRating: 9 } as never);
+    // Rating is per-member now: InputNumber onBlur -> submitRating -> refetch via get().
+    // Closing the meeting (separate action, behind a confirm modal) only carries
+    // concludeNotes — overallRating is derived server-side from submitted ratings.
+    vi.mocked(l10Api.submitRating).mockResolvedValue({
+      id: 'rating-1',
+      meetingId: 'meeting-1',
+      userId: 'user-1',
+      rating: 9,
+    } as never);
+    vi.mocked(l10Api.close).mockResolvedValue({ ...meeting, status: 'completed' } as never);
     renderPage();
     await waitFor(() => expect(screen.getByPlaceholderText(/notas de segue/i)).toBeInTheDocument());
 
     await userEvent.click(screen.getByText('Conclude'));
-    await userEvent.type(screen.getByLabelText(/rating/i), '9');
-    await userEvent.click(screen.getByRole('button', { name: /cerrar reunión/i }));
+    await userEvent.type(screen.getByPlaceholderText('-'), '9');
+    await userEvent.tab();
 
     await waitFor(() =>
-      expect(l10Api.close).toHaveBeenCalledWith('meeting-1', expect.objectContaining({ overallRating: 9 }))
+      expect(l10Api.submitRating).toHaveBeenCalledWith('meeting-1', { rating: 9, targetUserId: 'user-1' })
     );
+
+    // "Cerrar reunión L10" opens a confirmation modal; the modal's own button
+    // ("Confirmar y cerrar reunión") triggers the actual close.
+    await userEvent.click(screen.getByRole('button', { name: /cerrar reunión l10/i }));
+    await userEvent.click(await screen.findByRole('button', { name: /confirmar y cerrar reunión/i }));
+
+    await waitFor(() => expect(l10Api.close).toHaveBeenCalledWith('meeting-1', expect.anything()));
   });
 
   it('logs a note on a rock, shows it, and updates an issue status with real data', async () => {
@@ -224,10 +254,13 @@ describe('L10LiveMeetingPage', () => {
     // exact: false does a substring match instead, which still uniquely
     // identifies this row.
     expect(await screen.findByText('Cerrar el trato con Cliente X', { exact: false })).toBeInTheDocument();
-    expect(screen.getByText('Nota ya guardada de una reunión anterior')).toBeInTheDocument();
+    // The note row renders as "• {notes}" (bullet + text as sibling text nodes),
+    // so match on the substring rather than the exact full text.
+    expect(screen.getByText(/Nota ya guardada de una reunión anterior/)).toBeInTheDocument();
 
-    await userEvent.type(screen.getByPlaceholderText('Nota de discusión'), 'Sigue on track');
-    await userEvent.click(screen.getByRole('button', { name: /añadir nota/i }));
+    // The "add note" button is icon-only (no accessible name), so press Enter
+    // in the input instead — onPressEnter wires to the same logRockNote call.
+    await userEvent.type(screen.getByPlaceholderText('Añadir nota...'), 'Sigue on track{enter}');
 
     await waitFor(() =>
       expect(l10Api.logAgendaItem).toHaveBeenCalledWith('meeting-1', {
@@ -236,8 +269,8 @@ describe('L10LiveMeetingPage', () => {
         notes: 'Sigue on track',
       })
     );
-    await waitFor(() => expect(screen.getByText('Sigue on track')).toBeInTheDocument());
-    expect(screen.getByPlaceholderText('Nota de discusión')).toHaveValue('');
+    await waitFor(() => expect(screen.getByText(/Sigue on track/)).toBeInTheDocument());
+    expect(screen.getByPlaceholderText('Añadir nota...')).toHaveValue('');
 
     await userEvent.click(screen.getByText('IDS'));
     expect(await screen.findByText('Proceso de onboarding no documentado')).toBeInTheDocument();

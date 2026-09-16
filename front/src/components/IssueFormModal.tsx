@@ -114,7 +114,7 @@ export function IssueFormModal({ open, issue, members, quarter, onClose, onSaved
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item name="raisedByUserId" label="Owner / Creado por" rules={[{ required: true, message: 'Elige un owner' }]}>
-              <UserSelect placeholder="Seleccionar miembro" members={members} />
+              <UserSelect ariaLabel="Owner" placeholder="Seleccionar miembro" members={members} />
             </Form.Item>
           </Col>
 

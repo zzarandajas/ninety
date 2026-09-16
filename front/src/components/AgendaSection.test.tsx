@@ -16,6 +16,15 @@ import { AgendaSection } from './AgendaSection';
 // so the state update from the `setInterval` tick is flushed to the DOM
 // before the following assertion runs (React 18's concurrent scheduler
 // does not guarantee a synchronous flush otherwise).
+//
+// NOTE on pause/resume: AgendaSection has no pause button of its own — it's
+// a controlled component. The timer is derived from `timerStartedAt` (a wall
+// clock reference) + `initialSeconds` (an accumulated base), and pausing is
+// just `isPaused=true` — the actual pause/resume control lives in the parent
+// (L10LiveMeetingPage's global meeting timer), which snapshots the elapsed
+// seconds into `initialSeconds` when pausing and gives a fresh
+// `timerStartedAt` when resuming. These tests simulate that parent behavior
+// via `rerender` instead of clicking a button that doesn't exist here.
 describe('AgendaSection', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -26,8 +35,17 @@ describe('AgendaSection', () => {
   });
 
   it('shows its children and a running timer when active', () => {
+    const timerStartedAt = new Date().toISOString();
+
     render(
-      <AgendaSection icon={null} title="Segue" targetMinutes={5} active onActivate={vi.fn()}>
+      <AgendaSection
+        icon={null}
+        title="Segue"
+        targetMinutes={5}
+        active
+        onActivate={vi.fn()}
+        timerStartedAt={timerStartedAt}
+      >
         <div>contenido de segue</div>
       </AgendaSection>
     );
@@ -56,8 +74,10 @@ describe('AgendaSection', () => {
   });
 
   it('stops the timer while collapsed and resumes counting from where it left off when re-activated', () => {
+    const firstStart = new Date().toISOString();
+
     const { rerender } = render(
-      <AgendaSection icon={null} title="IDS" targetMinutes={60} active onActivate={vi.fn()}>
+      <AgendaSection icon={null} title="IDS" targetMinutes={60} active onActivate={vi.fn()} timerStartedAt={firstStart}>
         <div>ids</div>
       </AgendaSection>
     );
@@ -67,8 +87,10 @@ describe('AgendaSection', () => {
     });
     expect(screen.getByText('00:05 / 60:00')).toBeInTheDocument();
 
+    // Parent deactivates the section: it froze 5s but doesn't pass it down
+    // yet (nothing renders while collapsed, so it doesn't matter here).
     rerender(
-      <AgendaSection icon={null} title="IDS" targetMinutes={60} active={false} onActivate={vi.fn()}>
+      <AgendaSection icon={null} title="IDS" targetMinutes={60} active={false} onActivate={vi.fn()} timerStartedAt={firstStart}>
         <div>ids</div>
       </AgendaSection>
     );
@@ -76,17 +98,31 @@ describe('AgendaSection', () => {
       vi.advanceTimersByTime(5000);
     });
 
+    // Parent re-activates: it hands back the frozen 5s as the new base plus
+    // a fresh timerStartedAt reference, exactly like L10LiveMeetingPage does
+    // when switching the active section.
+    const secondStart = new Date().toISOString();
     rerender(
-      <AgendaSection icon={null} title="IDS" targetMinutes={60} active onActivate={vi.fn()}>
+      <AgendaSection
+        icon={null}
+        title="IDS"
+        targetMinutes={60}
+        active
+        onActivate={vi.fn()}
+        initialSeconds={5}
+        timerStartedAt={secondStart}
+      >
         <div>ids</div>
       </AgendaSection>
     );
     expect(screen.getByText('00:05 / 60:00')).toBeInTheDocument();
   });
 
-  it('pauses and resumes on button click without losing elapsed time', () => {
-    render(
-      <AgendaSection icon={null} title="Rock Review" targetMinutes={5} active onActivate={vi.fn()}>
+  it('pauses and resumes without losing elapsed time', () => {
+    const firstStart = new Date().toISOString();
+
+    const { rerender } = render(
+      <AgendaSection icon={null} title="Rock Review" targetMinutes={5} active onActivate={vi.fn()} timerStartedAt={firstStart}>
         <div>rocks</div>
       </AgendaSection>
     );
@@ -94,13 +130,43 @@ describe('AgendaSection', () => {
     act(() => {
       vi.advanceTimersByTime(2000);
     });
-    fireEvent.click(screen.getByRole('button', { name: /pausar/i }));
+    expect(screen.getByText('00:02 / 5:00')).toBeInTheDocument();
+
+    // Parent pauses: snapshots the 2s elapsed into initialSeconds and sets isPaused.
+    rerender(
+      <AgendaSection
+        icon={null}
+        title="Rock Review"
+        targetMinutes={5}
+        active
+        onActivate={vi.fn()}
+        initialSeconds={2}
+        timerStartedAt={firstStart}
+        isPaused
+      >
+        <div>rocks</div>
+      </AgendaSection>
+    );
     act(() => {
       vi.advanceTimersByTime(3000);
     });
     expect(screen.getByText('00:02 / 5:00')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /reanudar/i }));
+    // Parent resumes: keeps the 2s base, hands a fresh timerStartedAt.
+    const resumeStart = new Date().toISOString();
+    rerender(
+      <AgendaSection
+        icon={null}
+        title="Rock Review"
+        targetMinutes={5}
+        active
+        onActivate={vi.fn()}
+        initialSeconds={2}
+        timerStartedAt={resumeStart}
+      >
+        <div>rocks</div>
+      </AgendaSection>
+    );
     act(() => {
       vi.advanceTimersByTime(1000);
     });

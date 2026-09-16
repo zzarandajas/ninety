@@ -103,7 +103,7 @@ describe('tenant routes', () => {
     });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual([{ userId: 'user-1', fullName: 'Pablo', email: 'correopro@gmail.com' }]);
+    expect(response.json()).toEqual([{ userId: 'user-1', fullName: 'Pablo', email: 'correopro@gmail.com', role: 'owner' }]);
     await app.close();
   });
 

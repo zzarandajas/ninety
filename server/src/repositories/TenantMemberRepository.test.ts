@@ -33,6 +33,8 @@ describe('TenantMemberRepository', () => {
     expect(prisma.tenantMembership.findMany).toHaveBeenCalledWith(
       expect.objectContaining({ where: { tenantId: 'tenant-1', isActive: true } })
     );
-    expect(members).toEqual([{ userId: 'user-1', fullName: 'Pablo', email: 'correopro@gmail.com', avatarUrl: '/uploads/avatars/user-1.jpg' }]);
+    expect(members).toEqual([
+      { userId: 'user-1', fullName: 'Pablo', email: 'correopro@gmail.com', avatarUrl: '/uploads/avatars/user-1.jpg', role: 'owner' },
+    ]);
   });
 });

@@ -30,7 +30,7 @@ describe('InviteMemberModal', () => {
 
     render(<InviteMemberModal open canGrantOwner={false} onClose={vi.fn()} onInvited={onInvited} />);
 
-    await userEvent.type(screen.getByLabelText(/email/i), 'nuevo@tasvalor.com');
+    await userEvent.type(screen.getByLabelText(/correo/i), 'nuevo@tasvalor.com');
     await userEvent.type(screen.getByLabelText(/nombre completo/i), 'Nuevo');
     await userEvent.click(screen.getByRole('button', { name: /invitar/i }));
 
@@ -56,11 +56,11 @@ describe('InviteMemberModal', () => {
 
     render(<InviteMemberModal open canGrantOwner={false} onClose={vi.fn()} onInvited={vi.fn()} />);
 
-    await userEvent.type(screen.getByLabelText(/email/i), 'existing@tasvalor.com');
+    await userEvent.type(screen.getByLabelText(/correo/i), 'existing@tasvalor.com');
     await userEvent.type(screen.getByLabelText(/nombre completo/i), 'Existing');
     await userEvent.click(screen.getByRole('button', { name: /invitar/i }));
 
-    expect(await screen.findByText(/ya ten[ií]a cuenta/i)).toBeInTheDocument();
+    expect(await screen.findByText(/ya dispone de cuenta previa/i)).toBeInTheDocument();
   });
 
   it('disables the owner role option when the viewer cannot grant it', async () => {
@@ -71,7 +71,7 @@ describe('InviteMemberModal', () => {
 
     // rc-select's accessible "option" role mirror omits disabled entries entirely;
     // the real (visible) item only exposes disabled state via this class.
-    const ownerOption = await screen.findByTitle('Owner');
+    const ownerOption = await screen.findByTitle('Propietario / Owner');
     expect(ownerOption).toHaveClass('ant-select-item-option-disabled');
   });
 });

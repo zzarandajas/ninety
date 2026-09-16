@@ -34,6 +34,6 @@ describe('AccountPage', () => {
     expect(screen.getByDisplayValue('Pablo Test')).toBeInTheDocument();
     expect(screen.getByText('Mis Empresas')).toBeInTheDocument();
     expect(screen.getByText('Tasvalor')).toBeInTheDocument();
-    expect(screen.getByText('Cambiar Contraseña')).toBeInTheDocument();
+    expect(screen.getByText('Seguridad')).toBeInTheDocument();
   });
 });

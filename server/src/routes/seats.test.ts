@@ -9,8 +9,12 @@ beforeAll(() => {
   process.env.JWT_SECRET ??= 'a-very-long-random-secret-value';
 });
 
-// Define the global mock Prisma object with vi.fn() for all methods
-const mockPrisma = {
+// Define the global mock Prisma object with vi.fn() for all methods.
+// vi.hoisted ensures this is initialized before the vi.mock factory below runs —
+// vi.mock itself is hoisted above the imports that transitively need '../lib/prisma.js'
+// (seatsRoutes -> resolveTenantContext -> prisma), so a plain top-level const here
+// would still be in its TDZ when the factory first executes.
+const mockPrisma = vi.hoisted(() => ({
   tenant: {
     findMany: vi.fn(),
     findUnique: vi.fn(),
@@ -40,7 +44,7 @@ const mockPrisma = {
     delete: vi.fn(),
     count: vi.fn(),
   },
-};
+}));
 
 // Mock the actual Prisma client module to return our global mock object
 vi.mock('../lib/prisma.js', () => ({
@@ -53,13 +57,6 @@ async function buildTestApp(): Promise<FastifyInstance> {
     disableRequestLogging: true,
     logger: false,
   });
-
-  // Mock Fastify's authenticate decorator
-  app.decorateRequest('user', null);
-  app.decorateRequest('tenant', null);
-  app.decorate('authenticate', vi.fn(async (request) => {
-    request.user = { userId: 'user-1', role: 'owner', tenantId: 't-1' }; // Default test user
-  }));
 
   await app.register(jwtPlugin);
   await app.register(seatsRoutes); // Register seats routes directly

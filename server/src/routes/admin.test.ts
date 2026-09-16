@@ -37,13 +37,20 @@ describe('admin routes', { timeout: 15000 }, () => {
       role: 'owner',
       isActive: true,
     } as never);
+    // getAdminAccess() uses findMany, not findFirst, to resolve the caller's owner/admin tenants
+    vi.mocked(mockPrisma.tenantMembership.findMany).mockResolvedValue([
+      { tenantId: 't-1', role: 'owner' },
+    ] as never);
 
-    vi.mocked(mockPrisma.seat.create).mockImplementation((input) => {
-      if (input.data.name === 'Visionario') {
-        return { id: 'mock-visionary-seat-id', ...input.data };
-      }
-      return { id: 'mock-integrator-seat-id', ...input.data };
-    });
+    vi.mocked(mockPrisma.seat.create).mockImplementation((input) => ({
+      id: `mock-seat-${input.data.name.toLowerCase().replace(/\s+/g, '-')}`,
+      ...input.data,
+    }));
+    // SeatRepository.create() verifies the parent seat exists (findFirst) before
+    // linking to it — e.g. Integrador -> Visionario during resetToDefault().
+    vi.mocked(mockPrisma.seat.findFirst).mockImplementation(({ where }: { where: { id: string; tenantId: string } }) =>
+      Promise.resolve({ id: where.id, tenantId: where.tenantId, parentSeatId: null } as never)
+    );
   });
 
   it('GET /admin/tenants returns all tenants for an admin user', async () => {
@@ -99,29 +106,32 @@ describe('admin routes', { timeout: 15000 }, () => {
     expect(mockPrisma.tenantMembership.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: { tenantId: 't-new', userId: 'user-1', role: 'owner' } })
     );
-    expect(mockPrisma.seat.create).toHaveBeenCalledTimes(2);
+    // resetToDefault() seeds the full EOS default org chart: Visionario, 3 Integradores
+    // bajo el Visionario, y un departamento (Ventas/Marketing, Operaciones, Finanzas) bajo
+    // cada integrador — 7 seats en total.
+    expect(mockPrisma.seat.create).toHaveBeenCalledTimes(7);
     expect(mockPrisma.seat.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: {
+        data: expect.objectContaining({
           tenantId: 't-new',
           name: 'Visionario',
           parentSeatId: null,
           createdByUserId: 'user-1',
           updatedByUserId: 'user-1',
-        },
+        }),
       })
     );
-    expect(mockPrisma.seat.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          tenantId: 't-new',
-          name: 'Integrador',
-          parentSeatId: 'mock-visionary-seat-id',
-          createdByUserId: 'user-1',
-          updatedByUserId: 'user-1',
-        },
-      })
-    );
+    for (const integrador of ['Integrador 1', 'Integrador 2', 'Integrador 3']) {
+      expect(mockPrisma.seat.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            tenantId: 't-new',
+            name: integrador,
+            parentSeatId: 'mock-seat-visionario',
+          }),
+        })
+      );
+    }
     await app.close();
   });
 

@@ -107,7 +107,9 @@ describe('IssuesPage', () => {
     });
     await userEvent.click(dropdownOption);
 
-    await waitFor(() => expect(issuesApi.list).toHaveBeenCalledWith({ status: 'discussing' }));
+    await waitFor(() =>
+      expect(issuesApi.list).toHaveBeenCalledWith(expect.objectContaining({ status: 'discussing' }))
+    );
   });
 
   it('opens the modal in edit mode when a title is clicked', async () => {

@@ -81,7 +81,6 @@ async function getAdminAccess(userId: string): Promise<AdminAccessInfo> {
     },
     select: { tenantId: true, role: true },
   });
-
   if (memberships.length === 0) {
     throw new HttpError(403, 'Requires admin or owner role in at least one company');
   }

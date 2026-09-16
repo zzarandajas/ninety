@@ -126,7 +126,7 @@ export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose
         <Row gutter={16}>
           <Col span={12}>
             <Form.Item name="ownerUserId" label="Responsable (Owner)" rules={[{ required: true, message: 'Elige un owner' }]}>
-              <UserSelect placeholder="Seleccionar miembro" members={members} />
+              <UserSelect ariaLabel="Owner" placeholder="Seleccionar miembro" members={members} />
             </Form.Item>
           </Col>
 

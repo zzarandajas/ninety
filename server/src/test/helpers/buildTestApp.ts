@@ -1,5 +1,6 @@
-import Fastify, { FastifyInstance, type FastifyRequest } from 'fastify';
-import { vi } from 'vitest';
+import '../mocks/globalMocks.js'; // Registers vi.mock('../lib/prisma.js') before any route module (which imports it) loads below
+import Fastify, { FastifyInstance } from 'fastify';
+import { ZodError } from 'zod';
 import jwtPlugin from '../../plugins/jwt.js';
 import adminRoutes from '../../routes/admin.js';
 import seatsRoutes from '../../routes/seats.js';
@@ -16,12 +17,19 @@ export async function buildTestApp(options?: BuildTestAppOptions): Promise<Fasti
     logger: false,
   });
 
-  // Mock Fastify's authenticate decorator
-  app.decorateRequest('user', null);
-  app.decorateRequest('tenant', null);
-  app.decorate('authenticate', vi.fn(async (request: FastifyRequest) => {
-    (request as any).user = { userId: 'user-1', role: 'owner', tenantId: 't-1' }; // Default test user
-  }));
+  // Same shape as app.ts's setErrorHandler, so HttpError/ZodError thrown by routes
+  // surface their intended `{ error: message }` body instead of Fastify's generic
+  // "Bad Request"/500 default.
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ZodError) {
+      return reply.code(400).send({ error: error.issues.map((issue) => issue.message).join(', ') });
+    }
+    const statusCode = error.statusCode && error.statusCode < 500 ? error.statusCode : 500;
+    if (statusCode >= 500) {
+      return reply.code(500).send({ error: 'Internal Server Error' });
+    }
+    return reply.code(statusCode).send({ error: error.message });
+  });
 
   await app.register(jwtPlugin);
   await app.register(adminRoutes, { prefix: '/admin' });

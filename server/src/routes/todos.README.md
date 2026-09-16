@@ -17,13 +17,6 @@ requieren `Authorization: Bearer <token>` y `X-Tenant-Id`.
   `quarter`, `dueDate`, `status`. `originatingMeetingId` no es editable — se fija solo al crear.
 - `DELETE /todos/:id` — 204 en éxito, 404 si no existía.
 
-## Sin página propia
-
-Este sprint no incluye una vista `/todos` independiente — los Todos se gestionan únicamente
-dentro de `front/src/pages/L10LiveMeetingPage.tsx` (sección "To-Do List"), que es el único
-consumidor real hoy. Una lista global de Todos (filtrable por owner, con vista fuera de una
-reunión) es candidata a un sprint futuro si se pide — YAGNI por ahora.
-
 ## Permisos
 
 Sin ACL por rol, igual que el resto de módulos.
@@ -31,9 +24,12 @@ Sin ACL por rol, igual que el resto de módulos.
 ## Frontend
 
 `front/src/lib/todosApi.ts` envuelve estos endpoints. `front/src/components/TodoFormModal.tsx`
-es el formulario de crear/editar/borrar, usado desde `L10LiveMeetingPage`. El prop `meetingId`
-del modal solo se aplica en modo creación (se envía como `originatingMeetingId`) — editar un
-todo existente nunca reasigna su reunión de origen.
+es el formulario de crear/editar/borrar, usado desde `TodosPage` (vista `/todos` independiente)
+y desde `L10LiveMeetingPage` (sección "To-Do List"). El prop `meetingId` del modal solo se aplica
+en modo creación (se envía como `originatingMeetingId`) — editar un todo existente nunca
+reasigna su reunión de origen. En ambos consumidores, `title` se muestra como texto plano en
+las tablas; `description` (si existe) solo se ve como preview de una línea en la fila del To-Do
+dentro de L10, y completa en el modal de edición.
 
 ## Cómo probarlo manualmente
 

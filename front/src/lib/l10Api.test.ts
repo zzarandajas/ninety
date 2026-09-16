@@ -76,7 +76,7 @@ describe('l10Api', () => {
     expect(apiFetch).toHaveBeenCalledWith('/l10/meeting-1', expect.objectContaining({ method: 'DELETE' }));
   });
 
-  it('close POSTs the rating and notes', async () => {
+  it('close POSTs the concludeNotes', async () => {
     const { apiFetch } = await import('./apiClient');
     vi.mocked(apiFetch).mockResolvedValue({ id: 'meeting-1' });
     const { l10Api } = await import('./l10Api');
@@ -87,7 +87,7 @@ describe('l10Api', () => {
       '/l10/meeting-1/close',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ overallRating: 8, concludeNotes: 'Buena reunión' }),
+        body: JSON.stringify({ concludeNotes: 'Buena reunión' }),
       })
     );
   });

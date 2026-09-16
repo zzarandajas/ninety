@@ -41,7 +41,7 @@ describe('IssueFormModal', () => {
     render(<IssueFormModal open members={members} onClose={vi.fn()} onSaved={onSaved} />);
 
     await userEvent.type(screen.getByLabelText(/título/i), 'Nuevo issue');
-    await userEvent.click(screen.getByLabelText(/owner/i));
+    await userEvent.click(screen.getByRole('combobox', { name: 'Owner' }));
     await userEvent.click(await screen.findByText('Pablo'));
     await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
 
