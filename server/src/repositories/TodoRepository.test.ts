@@ -24,6 +24,7 @@ function makeTodo(overrides: Partial<Todo> = {}): Todo {
     tenantId: TENANT_A,
     title: 'Enviar propuesta a cliente X',
     ownerUserId: 'user-1',
+    quarter: '2026-Q3',
     dueDate: null,
     status: 'open',
     originatingMeetingId: null,
@@ -82,12 +83,16 @@ describe('TodoRepository', () => {
       vi.mocked(prisma.todo.create).mockResolvedValue(makeTodo());
       const repo = new TodoRepository(TENANT_A);
 
-      await repo.create({ title: 'Enviar propuesta a cliente X', ownerUserId: 'user-1' }, 'user-1');
+      await repo.create(
+        { title: 'Enviar propuesta a cliente X', ownerUserId: 'user-1', quarter: '2026-Q3' },
+        'user-1'
+      );
 
       expect(prisma.todo.create).toHaveBeenCalledWith({
         data: {
           title: 'Enviar propuesta a cliente X',
           ownerUserId: 'user-1',
+          quarter: '2026-Q3',
           tenantId: TENANT_A,
           createdByUserId: 'user-1',
           updatedByUserId: 'user-1',
@@ -101,7 +106,7 @@ describe('TodoRepository', () => {
       const dueDate = new Date('2026-08-01T00:00:00.000Z');
 
       await repo.create(
-        { title: 'x', ownerUserId: 'user-1', dueDate, originatingMeetingId: 'meeting-1' },
+        { title: 'x', ownerUserId: 'user-1', quarter: '2026-Q3', dueDate, originatingMeetingId: 'meeting-1' },
         'user-1'
       );
 
@@ -109,6 +114,7 @@ describe('TodoRepository', () => {
         data: {
           title: 'x',
           ownerUserId: 'user-1',
+          quarter: '2026-Q3',
           dueDate,
           originatingMeetingId: 'meeting-1',
           tenantId: TENANT_A,

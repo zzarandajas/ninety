@@ -24,6 +24,7 @@ function makeMeeting(overrides: Partial<L10Meeting> = {}): L10Meeting {
     tenantId: TENANT_A,
     meetingDate: new Date('2026-08-03T00:00:00.000Z'),
     facilitatorUserId: 'user-1',
+    quarter: '2026-Q3',
     status: 'scheduled',
     segueNotes: null,
     headlines: null,
@@ -91,12 +92,13 @@ describe('L10MeetingRepository', () => {
       const repo = new L10MeetingRepository(TENANT_A);
       const meetingDate = new Date('2026-08-03T00:00:00.000Z');
 
-      await repo.create({ meetingDate, facilitatorUserId: 'user-1' }, 'user-1');
+      await repo.create({ meetingDate, facilitatorUserId: 'user-1', quarter: '2026-Q3' }, 'user-1');
 
       expect(prisma.l10Meeting.create).toHaveBeenCalledWith({
         data: {
           meetingDate,
           facilitatorUserId: 'user-1',
+          quarter: '2026-Q3',
           tenantId: TENANT_A,
           status: 'scheduled',
           createdByUserId: 'user-1',

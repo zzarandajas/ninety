@@ -29,6 +29,7 @@ function makeIssue(overrides: Partial<Issue> = {}): Issue {
     raisedByUserId: 'user-1',
     status: 'open',
     priority: 'medium',
+    quarter: '2026-Q3',
     sortOrder: 0,
     createdAt: new Date('2026-07-01T00:00:00.000Z'),
     updatedAt: new Date('2026-07-01T00:00:00.000Z'),
@@ -90,7 +91,10 @@ describe('IssueRepository', () => {
       vi.mocked(prisma.issue.create).mockResolvedValue(makeIssue({ sortOrder: 5 }));
       const repo = new IssueRepository(TENANT_A);
 
-      await repo.create({ title: 'New issue', raisedByUserId: 'user-1', priority: 'high' }, 'user-1');
+      await repo.create(
+        { title: 'New issue', raisedByUserId: 'user-1', priority: 'high', quarter: '2026-Q3' },
+        'user-1'
+      );
 
       expect(prisma.issue.aggregate).toHaveBeenCalledWith({
         where: { tenantId: TENANT_A },
@@ -101,6 +105,7 @@ describe('IssueRepository', () => {
           title: 'New issue',
           raisedByUserId: 'user-1',
           priority: 'high',
+          quarter: '2026-Q3',
           tenantId: TENANT_A,
           sortOrder: 5,
           createdByUserId: 'user-1',
@@ -114,7 +119,10 @@ describe('IssueRepository', () => {
       vi.mocked(prisma.issue.create).mockResolvedValue(makeIssue({ sortOrder: 0 }));
       const repo = new IssueRepository(TENANT_A);
 
-      await repo.create({ title: 'First issue', raisedByUserId: 'user-1', priority: 'low' }, 'user-1');
+      await repo.create(
+        { title: 'First issue', raisedByUserId: 'user-1', priority: 'low', quarter: '2026-Q3' },
+        'user-1'
+      );
 
       expect(prisma.issue.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ sortOrder: 0 }) })
@@ -126,7 +134,10 @@ describe('IssueRepository', () => {
       vi.mocked(prisma.issue.create).mockResolvedValue(makeIssue());
       const repo = new IssueRepository(TENANT_A);
 
-      await repo.create({ title: 'New issue', raisedByUserId: 'user-1', priority: 'high' }, 'user-3');
+      await repo.create(
+        { title: 'New issue', raisedByUserId: 'user-1', priority: 'high', quarter: '2026-Q3' },
+        'user-3'
+      );
 
       expect(prisma.issue.create).toHaveBeenCalledWith(
         expect.objectContaining({
