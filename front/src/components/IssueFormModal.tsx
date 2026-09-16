@@ -2,8 +2,10 @@ import { ExclamationCircleOutlined, CloseOutlined, DeleteOutlined, SaveOutlined 
 import { Button, Col, Form, Input, message, Modal, Popconfirm, Row, Select, Space } from 'antd';
 import { useEffect, useState } from 'react';
 import { issuesApi, type Issue, type IssuePriority, type IssueStatus } from '../lib/issuesApi';
+import { isHtmlEmpty } from '../lib/richText';
 import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
+import { RichTextEditor } from './RichTextEditor';
 import { UserSelect } from './UserSelect';
 import { currentQuarter } from '../lib/quarters';
 
@@ -53,9 +55,18 @@ export function IssueFormModal({ open, issue, members, quarter, onClose, onSaved
     try {
       const effectiveQuarter = quarter ?? issue?.quarter ?? currentQuarter();
       if (issue) {
-        await issuesApi.update(issue.id, { ...values, quarter: effectiveQuarter });
+        await issuesApi.update(issue.id, {
+          ...values,
+          description: isHtmlEmpty(values.description) ? null : values.description,
+          resolutionNotes: isHtmlEmpty(values.resolutionNotes) ? null : values.resolutionNotes,
+          quarter: effectiveQuarter,
+        });
       } else {
-        await issuesApi.create({ ...values, quarter: effectiveQuarter });
+        await issuesApi.create({
+          ...values,
+          description: isHtmlEmpty(values.description) ? undefined : values.description,
+          quarter: effectiveQuarter,
+        });
       }
       onSaved();
     } catch (e) {
@@ -97,7 +108,7 @@ export function IssueFormModal({ open, issue, members, quarter, onClose, onSaved
         </Form.Item>
 
         <Form.Item name="description" label="Descripción / Causa raíz inicial">
-          <Input.TextArea rows={2} placeholder="Añade contexto adicional para agilizar el análisis..." />
+          <RichTextEditor placeholder="Añade contexto adicional para agilizar el análisis..." />
         </Form.Item>
 
         <Row gutter={16}>
@@ -139,7 +150,7 @@ export function IssueFormModal({ open, issue, members, quarter, onClose, onSaved
 
         {issue && (
           <Form.Item name="resolutionNotes" label="Notas de resolución acordada">
-            <Input.TextArea rows={2} placeholder="Acuerdos principales alcanzados para solucionar el issue..." />
+            <RichTextEditor placeholder="Acuerdos principales alcanzados para solucionar el issue..." />
           </Form.Item>
         )}
 
@@ -154,7 +165,7 @@ export function IssueFormModal({ open, issue, members, quarter, onClose, onSaved
                 cancelText="Cancelar"
               >
                 <Button danger type="text" icon={<DeleteOutlined />}>
-                  Borrar
+                  Borrar Issue
                 </Button>
               </Popconfirm>
             )}

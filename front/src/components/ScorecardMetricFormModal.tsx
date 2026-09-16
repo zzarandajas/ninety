@@ -1,9 +1,11 @@
 import { BarChartOutlined, CloseOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import { Button, Col, Form, Input, InputNumber, message, Modal, Popconfirm, Row, Select, Space, Switch } from 'antd';
 import { useEffect, useState } from 'react';
+import { isHtmlEmpty } from '../lib/richText';
 import { scorecardApi, type MetricComparison, type MetricFrequency, type ScorecardMetric } from '../lib/scorecardApi';
 import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
+import { RichTextEditor } from './RichTextEditor';
 import { UserSelect } from './UserSelect';
 
 export interface ScorecardMetricFormModalProps {
@@ -16,6 +18,7 @@ export interface ScorecardMetricFormModalProps {
 
 interface FormValues {
   name: string;
+  description?: string;
   ownerUserId: string;
   goalValue: number;
   comparison: MetricComparison;
@@ -33,16 +36,26 @@ export function ScorecardMetricFormModal({ open, metric, members, onClose, onSav
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    form.setFieldsValue(metric ?? { comparison: 'gte', frequency: 'weekly', isActive: true });
+    form.setFieldsValue(
+      metric
+        ? { ...metric, description: metric.description ?? undefined }
+        : { comparison: 'gte', frequency: 'weekly', isActive: true }
+    );
   }, [metric, form]);
 
   async function handleSubmit(values: FormValues) {
     setSaving(true);
     try {
       if (metric) {
-        await scorecardApi.updateMetric(metric.id, values);
+        await scorecardApi.updateMetric(metric.id, {
+          ...values,
+          description: isHtmlEmpty(values.description) ? null : values.description,
+        });
       } else {
-        await scorecardApi.createMetric(values);
+        await scorecardApi.createMetric({
+          ...values,
+          description: isHtmlEmpty(values.description) ? undefined : values.description,
+        });
       }
       onSaved();
     } catch (e) {
@@ -81,6 +94,10 @@ export function ScorecardMetricFormModal({ open, metric, members, onClose, onSav
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
         <Form.Item name="name" label="Nombre del Indicador" rules={[{ required: true, message: 'Introduce un nombre' }]}>
           <Input placeholder="Ej. Facturación semanal, Llamadas comercial..." />
+        </Form.Item>
+
+        <Form.Item name="description" label="Descripción / Detalle">
+          <RichTextEditor placeholder="Qué mide este indicador, cómo se calcula, fuente de datos..." />
         </Form.Item>
 
         <Row gutter={16}>

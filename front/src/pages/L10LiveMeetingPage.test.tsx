@@ -18,7 +18,7 @@ vi.mock('../lib/rocksApi', async () => {
 });
 vi.mock('../lib/issuesApi', async () => {
   const actual = await vi.importActual<typeof import('../lib/issuesApi')>('../lib/issuesApi');
-  return { ...actual, issuesApi: { list: vi.fn(), update: vi.fn() } };
+  return { ...actual, issuesApi: { list: vi.fn(), update: vi.fn(), create: vi.fn() } };
 });
 vi.mock('../lib/scorecardApi', async () => {
   const actual = await vi.importActual<typeof import('../lib/scorecardApi')>('../lib/scorecardApi');
@@ -124,6 +124,26 @@ describe('L10LiveMeetingPage', () => {
     await userEvent.click(screen.getByRole('button', { name: /nuevo to-do/i }));
 
     expect(await screen.findByText('Nuevo to-do', { selector: '.ant-modal-title' })).toBeInTheDocument();
+  });
+
+  it('opens the create Issue modal from Headlines instead of auto-creating from the whole text', async () => {
+    const { l10Api } = await import('../lib/l10Api');
+    const { issuesApi } = await import('../lib/issuesApi');
+    const meetingWithHeadlines = {
+      ...meeting,
+      headlines: '<p>Cliente contento con el soporte, pero se queja de los tiempos de entrega</p>',
+    };
+    vi.mocked(l10Api.get).mockResolvedValue(meetingWithHeadlines as never);
+    vi.mocked(l10Api.update).mockResolvedValue(meetingWithHeadlines as never);
+
+    renderPage();
+    await waitFor(() => expect(screen.getByPlaceholderText(/notas de segue/i)).toBeInTheDocument());
+
+    await userEvent.click(screen.getByText('Headlines'));
+    await userEvent.click(await screen.findByRole('button', { name: /convertir titular en issue/i }));
+
+    expect(await screen.findByText('Nuevo Issue (IDS)')).toBeInTheDocument();
+    expect(issuesApi.create).not.toHaveBeenCalled();
   });
 
   it('closes the meeting with a rating and notes', async () => {

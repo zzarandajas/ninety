@@ -4,12 +4,18 @@ import dayjs from 'dayjs';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 import { AgendaSection } from '../components/AgendaSection';
+import { IssueFormModal } from '../components/IssueFormModal';
+import { RichTextEditor } from '../components/RichTextEditor';
+import { RichTextView } from '../components/RichTextView';
+import { RockFormModal } from '../components/RockFormModal';
+import { ScorecardMetricFormModal } from '../components/ScorecardMetricFormModal';
 import { Template } from '../components/Template';
 import { TodoFormModal } from '../components/TodoFormModal';
 import { MemberCell } from '../components/UserAvatar';
 import { evaluateGoal } from '../lib/evaluateGoal';
 import { issuesApi, type Issue, type IssueStatus } from '../lib/issuesApi';
 import { l10Api, type L10AgendaItemLog, type L10Meeting, type MeetingRating } from '../lib/l10Api';
+import { isHtmlEmpty, stripHtml } from '../lib/richText';
 import { rocksApi, type Rock } from '../lib/rocksApi';
 import { scorecardApi, type MetricFrequency, type ScorecardEntry, type ScorecardMetric } from '../lib/scorecardApi';
 import { tenantApi, type TenantMember } from '../lib/tenantApi';
@@ -37,8 +43,17 @@ const ISSUE_STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
   { value: 'dropped', label: 'Dropped' },
 ];
 
+const PRIORITY_RANK: Record<Issue['priority'], number> = { high: 0, medium: 1, low: 2 };
+const STATUS_RANK: Record<IssueStatus, number> = { open: 0, discussing: 1, solved: 2, dropped: 3 };
+
 function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'Something went wrong';
+}
+
+function formatSectionTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
 function formatTotalTime(totalSeconds: number): string {
@@ -72,10 +87,16 @@ export function L10LiveMeetingPage() {
   const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
   const [memberRatingsDraft, setMemberRatingsDraft] = useState<Record<string, number | null>>({});
   const [concludeNotesDraft, setConcludeNotesDraft] = useState('');
+  const [segueNotesDraft, setSegueNotesDraft] = useState('');
+  const [headlinesDraft, setHeadlinesDraft] = useState('');
   const [rockFilter, setRockFilter] = useState<'all' | 'company' | 'personal'>('all');
   const [metricFilter, setMetricFilter] = useState<MetricFrequency | 'all'>('all');
+  const [detailIssue, setDetailIssue] = useState<Issue | null>(null);
+  const [creatingIssueFromHeadline, setCreatingIssueFromHeadline] = useState(false);
   const [endMeetingModalOpen, setEndMeetingModalOpen] = useState(false);
   const [timerInitialized, setTimerInitialized] = useState(false);
+  const [detailRock, setDetailRock] = useState<Rock | null>(null);
+  const [detailMetric, setDetailMetric] = useState<ScorecardMetric | null>(null);
 
   // Timer global de reunión
   const [meetingSeconds, setMeetingSeconds] = useState(0);
@@ -131,10 +152,14 @@ export function L10LiveMeetingPage() {
         payload.timerStartedAt = null;
         payload.timerIsPaused = true;
 
-        // También pausar el timer de la sección actual
+        // También pausar el timer de la sección actual, sumando su tramo al acumulado propio de esa sección
         if (meeting.currentSectionId && meeting.currentSectionStartedAt) {
           const sectionElapsed = dayjs().diff(dayjs(meeting.currentSectionStartedAt), 'second');
-          payload.currentSectionAccumulatedSeconds = meeting.currentSectionAccumulatedSeconds + (sectionElapsed > 0 ? sectionElapsed : 0);
+          const prevSeconds = meeting.sectionSeconds[meeting.currentSectionId] ?? 0;
+          payload.sectionSeconds = {
+            ...meeting.sectionSeconds,
+            [meeting.currentSectionId]: prevSeconds + (sectionElapsed > 0 ? sectionElapsed : 0),
+          };
           payload.currentSectionStartedAt = null;
         }
       }
@@ -150,18 +175,22 @@ export function L10LiveMeetingPage() {
     if (!id || !meeting) return;
 
     try {
+      const isRunning = !meeting.timerIsPaused && !!meeting.timerStartedAt;
+
+      // Cada sección acumula su propio tiempo: al salir de la sección actual,
+      // sumamos el tramo transcurrido a su contador antes de cambiar de pestaña.
+      const nextSectionSeconds = { ...meeting.sectionSeconds };
+      if (meeting.currentSectionId && isRunning && meeting.currentSectionStartedAt) {
+        const elapsed = dayjs().diff(dayjs(meeting.currentSectionStartedAt), 'second');
+        const prevSeconds = nextSectionSeconds[meeting.currentSectionId] ?? 0;
+        nextSectionSeconds[meeting.currentSectionId] = prevSeconds + (elapsed > 0 ? elapsed : 0);
+      }
+
       const payload: any = {
         currentSectionId: sectionId,
+        sectionSeconds: nextSectionSeconds,
+        currentSectionStartedAt: isRunning ? new Date().toISOString() : null,
       };
-
-      // Al cambiar de sección, reiniciamos el timer de la sección (comportamiento EOS estándar)
-      payload.currentSectionAccumulatedSeconds = 0;
-      
-      if (!meeting.timerIsPaused && meeting.timerStartedAt) {
-        payload.currentSectionStartedAt = new Date().toISOString();
-      } else {
-        payload.currentSectionStartedAt = null;
-      }
 
       const updated = await l10Api.update(id, payload);
       setMeeting(updated);
@@ -172,16 +201,14 @@ export function L10LiveMeetingPage() {
   }
 
   async function resetSectionTimer() {
-    if (!id || !meeting) return;
+    if (!id || !meeting || !meeting.currentSectionId) return;
     try {
       const payload: any = {
-        currentSectionAccumulatedSeconds: 0,
+        sectionSeconds: { ...meeting.sectionSeconds, [meeting.currentSectionId]: 0 },
       };
-      if (!meeting.timerIsPaused && (meeting.timerStartedAt || !meeting.timerIsPaused)) {
-         // Si la reunión no está pausada, empezamos a contar de nuevo desde ya
-         if (meeting.timerStartedAt) {
-           payload.currentSectionStartedAt = new Date().toISOString();
-         }
+      if (!meeting.timerIsPaused && meeting.timerStartedAt) {
+        // Si la reunión no está pausada, empezamos a contar de nuevo desde ya
+        payload.currentSectionStartedAt = new Date().toISOString();
       }
       const updated = await l10Api.update(id, payload);
       setMeeting(updated);
@@ -244,6 +271,8 @@ export function L10LiveMeetingPage() {
       });
       setMemberRatingsDraft(initialRatings);
       setConcludeNotesDraft(meeting.concludeNotes ?? '');
+      setSegueNotesDraft(meeting.segueNotes ?? '');
+      setHeadlinesDraft(meeting.headlines ?? '');
     }
   }, [meeting?.id, meeting?.ratings]);
 
@@ -262,7 +291,7 @@ export function L10LiveMeetingPage() {
   async function closeMeeting() {
     if (!id) return;
     try {
-      const updated = await l10Api.close(id, { concludeNotes: concludeNotesDraft || undefined });
+      const updated = await l10Api.close(id, { concludeNotes: isHtmlEmpty(concludeNotesDraft) ? undefined : concludeNotesDraft });
       setMeeting(updated);
       message.success('Reunión cerrada');
     } catch (e) {
@@ -273,7 +302,7 @@ export function L10LiveMeetingPage() {
   async function saveSegueNotes(value: string) {
     if (!id) return;
     try {
-      const updated = await l10Api.update(id, { segueNotes: value });
+      const updated = await l10Api.update(id, { segueNotes: isHtmlEmpty(value) ? null : value });
       setMeeting(updated);
     } catch (e) {
       message.error(errorMessage(e));
@@ -283,7 +312,7 @@ export function L10LiveMeetingPage() {
   async function saveHeadlines(value: string) {
     if (!id) return;
     try {
-      const updated = await l10Api.update(id, { headlines: value });
+      const updated = await l10Api.update(id, { headlines: isHtmlEmpty(value) ? null : value });
       setMeeting(updated);
     } catch (e) {
       message.error(errorMessage(e));
@@ -360,6 +389,22 @@ export function L10LiveMeetingPage() {
   const totalTargetSeconds = 90 * 60; // 90 min
   const meetingProgress = Math.min(100, Math.round((meetingSeconds / totalTargetSeconds) * 100));
 
+  function sectionSpentSeconds(sectionId: Section): number {
+    if (!meeting) return 0;
+    const base = meeting.sectionSeconds?.[sectionId] ?? 0;
+    if (meeting.currentSectionId === sectionId && !meeting.timerIsPaused && meeting.currentSectionStartedAt) {
+      const elapsed = dayjs().diff(dayjs(meeting.currentSectionStartedAt), 'second');
+      return base + (elapsed > 0 ? elapsed : 0);
+    }
+    return base;
+  }
+
+  function sectionProgressColor(percent: number, isOver: boolean): string {
+    if (isOver) return '#ff4d4f';
+    if (percent > 80) return '#fa8c16';
+    return 'var(--brand-green)';
+  }
+
   const filteredRocks = rocks.filter((r) => {
     if (rockFilter === 'company') return r.isCompanyRock;
     if (rockFilter === 'personal') return !r.isCompanyRock;
@@ -409,19 +454,22 @@ export function L10LiveMeetingPage() {
                 style={{ marginTop: 12, marginBottom: 16 }}
               />
 
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space direction="horizontal" style={{ width: '100%' }} size="middle">
                 <Button 
-                  block
+                  // Quitamos 'block' si quieres que no ocupen todo el ancho disponible
+                  // o mantenlo si quieres que se repartan el espacio equitativamente
                   type={isPaused ? 'primary' : 'default'}
+                    size={'small'}
                   icon={isPaused ? <Icons.PlayCircleOutlined /> : <Icons.PauseCircleOutlined />} 
                   onClick={toggleTimer}
                 >
                   {isPaused ? (!meeting.timerStartedAt ? 'Iniciar' : 'Reanudar') : 'Pausar'}
                 </Button>
+                
                 {meeting.status !== 'completed' && (
                   <Button
-                    block
                     danger
+                    size={'small'}
                     icon={<Icons.StopOutlined />}
                     onClick={() => setEndMeetingModalOpen(true)}
                   >
@@ -429,22 +477,28 @@ export function L10LiveMeetingPage() {
                   </Button>
                 )}
               </Space>
+
             </div>
 
-            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 16 }}>
+            <div>
               <Typography.Text strong style={{ fontSize: 12, display: 'block', marginBottom: 12, textTransform: 'uppercase', color: 'rgba(0,0,0,0.45)' }}>
                 Agenda
               </Typography.Text>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {SECTIONS_CONFIG.map((sec) => {
                   const isActive = activeSection === sec.id;
+                  const spentSeconds = sectionSpentSeconds(sec.id);
+                  const targetSeconds = sec.minutes * 60;
+                  const isOver = spentSeconds >= targetSeconds;
+                  const percent = Math.min(100, Math.round((spentSeconds / targetSeconds) * 100));
+                  const color = sectionProgressColor(percent, isOver);
                   return (
                     <Button
                       key={sec.id}
                       type={isActive ? 'primary' : 'text'}
-                      style={{ 
-                        textAlign: 'left', 
-                        height: 'auto', 
+                      style={{
+                        textAlign: 'left',
+                        height: 'auto',
                         padding: '8px 12px',
                         display: 'flex',
                         alignItems: 'center',
@@ -461,32 +515,48 @@ export function L10LiveMeetingPage() {
                         <span style={{ fontSize: 18, display: 'flex' }}>{sec.icon}</span>
                         <span>{sec.label}</span>
                       </Space>
-                      <Typography.Text type={isActive ? undefined : 'secondary'} style={{ fontSize: 11 }}>
-                        {sec.minutes}m
-                      </Typography.Text>
+                      <Progress
+                        type="dashboard"
+                        percent={percent}
+                        size={42}
+                        strokeWidth={10}
+                        strokeColor={color}
+                        format={() => (
+                          <span style={{ fontSize: 9, fontFamily: 'monospace', color: isActive ? '#fff' : undefined }}>
+                            {formatSectionTime(spentSeconds)}
+                          </span>
+                        )}
+                      />
                     </Button>
                   );
                 })}
               </div>
             </div>
 
-            <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 16, paddingTop: 16 }}>
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>Fecha:</Typography.Text>
-                  <Typography.Text style={{ fontSize: 12 }}>{dayjs(meeting.meetingDate).format('DD/MM/YYYY')}</Typography.Text>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>Facilitador:</Typography.Text>
-                  <Typography.Text style={{ fontSize: 12 }}>{facilitator?.fullName ?? '—'}</Typography.Text>
-                </div>
-              </Space>
-            </div>
+<div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 16, paddingTop: 16 }}>
+  {/* Contenedor Flex para alinear en una sola línea */}
+  <div style={{ display: 'flex', width: '100%' }}>
+    
+    {/* Columna Fecha (50%) */}
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingRight: 8 }}>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>Fecha:</Typography.Text>
+      <Typography.Text style={{ fontSize: 12 }}>{dayjs(meeting.meetingDate).format('DD/MM/YYYY')}</Typography.Text>
+    </div>
+
+    {/* Columna Facilitador (50%) */}
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', paddingLeft: 8 }}>
+      <Typography.Text type="secondary" style={{ fontSize: 12 }}>Facilitador:</Typography.Text>
+      <Typography.Text style={{ fontSize: 12 }}>{facilitator?.fullName ?? '—'}</Typography.Text>
+    </div>
+
+  </div>
+</div>
           </Card>
         </div>
 
         {/* CONTENIDO PRINCIPAL */}
         <div style={{ flex: 1, minWidth: 0 }}>
+          {activeSection === 'segue' && (
           <div id="section-segue" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
               title={SECTIONS_CONFIG[0].label}
@@ -495,21 +565,23 @@ export function L10LiveMeetingPage() {
               active={activeSection === 'segue'}
               onActivate={() => changeSection('segue')}
               onReset={resetSectionTimer}
-              initialSeconds={meeting.currentSectionId === 'segue' ? meeting.currentSectionAccumulatedSeconds : 0}
+              initialSeconds={meeting.sectionSeconds?.['segue'] ?? 0}
               timerStartedAt={meeting.currentSectionId === 'segue' ? meeting.currentSectionStartedAt : null}
               isPaused={meeting.timerIsPaused}
               description="Buenas noticias personales y profesionales de la semana. Transición mental para conectar al equipo y enfocar la energía antes de revisar métricas."
             >
-              <Input.TextArea
-                rows={3}
+              <RichTextEditor
                 placeholder="Notas de segue (1 buena noticia personal y 1 profesional por asistente)"
-                defaultValue={meeting.segueNotes ?? ''}
-                onBlur={(e) => saveSegueNotes(e.target.value)}
+                value={segueNotesDraft}
+                onChange={setSegueNotesDraft}
+                onBlur={saveSegueNotes}
               />
             </AgendaSection>
           </div>
+          )}
 
           {/* 2. SCORECARD */}
+          {activeSection === 'scorecard' && (
           <div id="section-scorecard" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
               title={SECTIONS_CONFIG[1].label}
@@ -518,24 +590,34 @@ export function L10LiveMeetingPage() {
               active={activeSection === 'scorecard'}
               onActivate={() => changeSection('scorecard')}
               onReset={resetSectionTimer}
-              initialSeconds={meeting.currentSectionId === 'scorecard' ? meeting.currentSectionAccumulatedSeconds : 0}
+              initialSeconds={meeting.sectionSeconds?.['scorecard'] ?? 0}
               timerStartedAt={meeting.currentSectionId === 'scorecard' ? meeting.currentSectionStartedAt : null}
               isPaused={meeting.timerIsPaused}
               description="Revisión rápida de métricas clave. Indicar sólo 'En objetivo' o 'Fuera de objetivo'. No justificar ni discutir aquí; si un número falla, enviar a IDS."
             >
-              <div style={{ marginBottom: 12 }}>
+              <div style={{ marginBottom: 16 }}>
+                <Space wrap align="center">
+                  <Typography.Text style={{ fontSize: 13, fontWeight: 600 }}>Filtrar Métricas:</Typography.Text>
                 <Radio.Group value={metricFilter} onChange={(e) => setMetricFilter(e.target.value)} size="small">
                   <Radio.Button value="all">Todas</Radio.Button>
                   <Radio.Button value="weekly">Semanales</Radio.Button>
                   <Radio.Button value="monthly">Mensuales</Radio.Button>
                 </Radio.Group>
+                </Space>
               </div>
+
+
+
               <Table
                 className="glass-panel"
                 pagination={false}
                 size="small"
                 dataSource={filteredMetrics}
                 rowKey="id"
+                onRow={(record) => ({
+                  onClick: () => setDetailMetric(record),
+                  style: { cursor: 'pointer' },
+                })}
                 columns={[
                   {
                     title: 'Métrica',
@@ -597,28 +679,45 @@ export function L10LiveMeetingPage() {
                       const entry = latestEntryFor(record.id);
                       const status = evaluateGoal(entry?.actualValue ?? null, record.goalValue, record.comparison);
                       return (
-                        <Button
-                          size="small"
-                          danger={status === 'missed'}
-                          icon={<Icons.SendOutlined />}
-                          onClick={() =>
-                            dropToIDS(
-                              `Scorecard: ${record.name} fuera de objetivo`,
-                              `Métrica ${record.name}: valor actual ${entry?.actualValue ?? '—'} vs objetivo ${record.goalValue} ${record.unit}`
-                            )
-                          }
-                        >
-                          + IDS
-                        </Button>
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="small"
+                            danger={status === 'missed'}
+                            icon={<Icons.SendOutlined />}
+                            onClick={() =>
+                              dropToIDS(
+                                `Scorecard: ${record.name} fuera de objetivo`,
+                                `Métrica ${record.name}: valor actual ${entry?.actualValue ?? '—'} vs objetivo ${record.goalValue} ${record.unit}`
+                              )
+                            }
+                          >
+                            + IDS
+                          </Button>
+                        </span>
                       );
                     }
                   }
                 ]}
               />
+
+              {detailMetric && (
+                <ScorecardMetricFormModal
+                  open
+                  metric={detailMetric}
+                  members={members}
+                  onClose={() => setDetailMetric(null)}
+                  onSaved={() => {
+                    setDetailMetric(null);
+                    scorecardApi.listMetrics({ isActive: true }).then(setMetrics).catch((e) => message.error(errorMessage(e)));
+                  }}
+                />
+              )}
             </AgendaSection>
           </div>
+          )}
 
           {/* 3. ROCK REVIEW */}
+          {activeSection === 'rocks' && (
           <div id="section-rocks" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
               title={SECTIONS_CONFIG[2].label}
@@ -627,7 +726,7 @@ export function L10LiveMeetingPage() {
               active={activeSection === 'rocks'}
               onActivate={() => changeSection('rocks')}
               onReset={resetSectionTimer}
-              initialSeconds={meeting.currentSectionId === 'rocks' ? meeting.currentSectionAccumulatedSeconds : 0}
+              initialSeconds={meeting.sectionSeconds?.['rocks'] ?? 0}
               timerStartedAt={meeting.currentSectionId === 'rocks' ? meeting.currentSectionStartedAt : null}
               isPaused={meeting.timerIsPaused}
               description="Revisar estado de Rocks de Empresa y Personales del trimestre ('On Track' / 'Off Track'). Si un Rock está Off-track, enviar a IDS para analizar y solucionar bloqueos."
@@ -655,13 +754,22 @@ export function L10LiveMeetingPage() {
                 size="small"
                 dataSource={filteredRocks}
                 rowKey="id"
+                onRow={(record) => ({
+                  onClick: () => setDetailRock(record),
+                  style: { cursor: 'pointer' },
+                })}
                 columns={[
                   {
                     title: 'Rock',
                     dataIndex: 'title',
                     key: 'title',
                     sorter: (a, b) => a.title.localeCompare(b.title),
-                    render: (title) => <Typography.Text strong>{title}</Typography.Text>
+                    render: (title, record) => (
+                      <Space size={8}>
+                        <Icons.RocketOutlined style={{ color: record.status === 'done' ? '#52c41a' : '#722ed1' }} />
+                        <Typography.Text strong>{title}</Typography.Text>
+                      </Space>
+                    )
                   },
                   {
                     title: 'Tipo',
@@ -710,16 +818,18 @@ export function L10LiveMeetingPage() {
                       const isOffTrack = record.status === 'off_track';
                       const owner = members.find((m) => m.userId === record.ownerUserId);
                       return (
-                        <Button
-                          size="small"
-                          danger={isOffTrack}
-                          icon={<Icons.SendOutlined />}
-                          onClick={() =>
-                            dropToIDS(`Rock off-track: ${record.title}`, `Rock de ${record.isCompanyRock ? 'Empresa' : 'Personal'} desviado. Owner: ${owner?.fullName ?? 'Sin owner'}`)
-                          }
-                        >
-                          + IDS
-                        </Button>
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="small"
+                            danger={isOffTrack}
+                            icon={<Icons.SendOutlined />}
+                            onClick={() =>
+                              dropToIDS(`Rock off-track: ${record.title}`, `Rock de ${record.isCompanyRock ? 'Empresa' : 'Personal'} desviado. Owner: ${owner?.fullName ?? 'Sin owner'}`)
+                            }
+                          >
+                            + IDS
+                          </Button>
+                        </span>
                       );
                     }
                   },
@@ -728,7 +838,10 @@ export function L10LiveMeetingPage() {
                     key: 'discussion',
                     width: 250,
                     render: (_, record) => (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div
+                        style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         <div style={{ display: 'flex', gap: 4 }}>
                           <Input
                             size="small"
@@ -751,10 +864,25 @@ export function L10LiveMeetingPage() {
                   }
                 ]}
               />
+
+              {detailRock && (
+                <RockFormModal
+                  open
+                  rock={detailRock}
+                  members={members}
+                  onClose={() => setDetailRock(null)}
+                  onSaved={() => {
+                    setDetailRock(null);
+                    rocksApi.list().then(setRocks).catch((e) => message.error(errorMessage(e)));
+                  }}
+                />
+              )}
             </AgendaSection>
           </div>
+          )}
 
           {/* 4. HEADLINES */}
+          {activeSection === 'headlines' && (
           <div id="section-headlines" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
               title={SECTIONS_CONFIG[3].label}
@@ -763,32 +891,46 @@ export function L10LiveMeetingPage() {
               active={activeSection === 'headlines'}
               onActivate={() => changeSection('headlines')}
               onReset={resetSectionTimer}
-              initialSeconds={meeting.currentSectionId === 'headlines' ? meeting.currentSectionAccumulatedSeconds : 0}
+              initialSeconds={meeting.sectionSeconds?.['headlines'] ?? 0}
               timerStartedAt={meeting.currentSectionId === 'headlines' ? meeting.currentSectionStartedAt : null}
               isPaused={meeting.timerIsPaused}
               description="Titulares breves sobre clientes, empleados u organización. Si un titular requiere debate o solución formal, convertirlo en un Issue para IDS."
             >
-              <Input.TextArea
-                rows={3}
+              <RichTextEditor
                 placeholder="Titulares de clientes y empleados"
-                defaultValue={meeting.headlines ?? ''}
-                onBlur={(e) => saveHeadlines(e.target.value)}
+                value={headlinesDraft}
+                onChange={setHeadlinesDraft}
+                onBlur={saveHeadlines}
               />
               {meeting.headlines && (
                 <div style={{ marginTop: 8 }}>
                   <Button
                     size="small"
                     icon={<Icons.SendOutlined />}
-                    onClick={() => dropToIDS(`Titular a tratar: ${meeting.headlines?.slice(0, 50)}...`, meeting.headlines ?? undefined)}
+                    onClick={() => setCreatingIssueFromHeadline(true)}
                   >
                     + Convertir Titular en Issue
                   </Button>
                 </div>
               )}
+              {creatingIssueFromHeadline && (
+                <IssueFormModal
+                  open
+                  members={members}
+                  quarter={meeting.quarter}
+                  onClose={() => setCreatingIssueFromHeadline(false)}
+                  onSaved={() => {
+                    setCreatingIssueFromHeadline(false);
+                    refetchIssues();
+                  }}
+                />
+              )}
             </AgendaSection>
           </div>
+          )}
 
           {/* 5. TO-DO LIST */}
+          {activeSection === 'todos' && (
           <div id="section-todos" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
               title={SECTIONS_CONFIG[4].label}
@@ -797,7 +939,7 @@ export function L10LiveMeetingPage() {
               active={activeSection === 'todos'}
               onActivate={() => changeSection('todos')}
               onReset={resetSectionTimer}
-              initialSeconds={meeting.currentSectionId === 'todos' ? meeting.currentSectionAccumulatedSeconds : 0}
+              initialSeconds={meeting.sectionSeconds?.['todos'] ?? 0}
               timerStartedAt={meeting.currentSectionId === 'todos' ? meeting.currentSectionStartedAt : null}
               isPaused={meeting.timerIsPaused}
               description="Revisión de compromisos a 7 días creados en reuniones previas. 'Hecho' o 'No hecho'. El objetivo del equipo es mantener un nivel de cumplimiento >90%."
@@ -821,7 +963,13 @@ export function L10LiveMeetingPage() {
                     sorter: (a, b) => a.title.localeCompare(b.title),
                     render: (title, record) => (
                       <a onClick={() => setEditingTodo(record)} style={{ fontWeight: 600 }}>
-                        {title}
+                        <Space size={8} align="start">
+                          <Icons.CheckSquareOutlined style={{ color: record.status === 'done' ? '#52c41a' : undefined, marginTop: 3 }} />
+                          <RichTextView
+                            html={title}
+                            style={{ textDecoration: record.status === 'done' ? 'line-through' : undefined, color: 'inherit' }}
+                          />
+                        </Space>
                       </a>
                     )
                   },
@@ -851,7 +999,7 @@ export function L10LiveMeetingPage() {
                         <Button
                           size="small"
                           icon={<Icons.SendOutlined />}
-                          onClick={() => dropToIDS(`To-Do no completado: ${record.title}`, `Owner: ${owner?.fullName ?? 'Sin asignado'}`)}
+                          onClick={() => dropToIDS(`To-Do no completado: ${stripHtml(record.title)}`, `Owner: ${owner?.fullName ?? 'Sin asignado'}`)}
                         >
                           + IDS
                         </Button>
@@ -862,8 +1010,10 @@ export function L10LiveMeetingPage() {
               />
             </AgendaSection>
           </div>
+          )}
 
           {/* 6. IDS (IDENTIFY, DISCUSS, SOLVE) */}
+          {activeSection === 'ids' && (
           <div id="section-ids" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
               title={SECTIONS_CONFIG[5].label}
@@ -872,7 +1022,7 @@ export function L10LiveMeetingPage() {
               active={activeSection === 'ids'}
               onActivate={() => changeSection('ids')}
               onReset={resetSectionTimer}
-              initialSeconds={meeting.currentSectionId === 'ids' ? meeting.currentSectionAccumulatedSeconds : 0}
+              initialSeconds={meeting.sectionSeconds?.['ids'] ?? 0}
               timerStartedAt={meeting.currentSectionId === 'ids' ? meeting.currentSectionStartedAt : null}
               isPaused={meeting.timerIsPaused}
               description="Core de la reunión L10 (60 min). Priorizar los Top 3 issues. 1) Identificar la causa raíz real, 2) Discutir soluciones de forma concisa, 3) Resolver creando To-Dos concretos."
@@ -883,6 +1033,10 @@ export function L10LiveMeetingPage() {
                 size="small"
                 dataSource={issues}
                 rowKey="id"
+                onRow={(record) => ({
+                  onClick: () => setDetailIssue(record),
+                  style: { cursor: 'pointer' },
+                })}
                 columns={[
                   {
                     title: 'Título',
@@ -895,10 +1049,12 @@ export function L10LiveMeetingPage() {
                           <Icons.ExclamationCircleOutlined style={{ color: 'var(--brand-green)' }} />
                           <Typography.Text strong style={{ fontSize: 14 }}>{title}</Typography.Text>
                         </Space>
-                        {record.description && (
-                          <div style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 300 }}>
-                            {record.description}
-                          </div>
+                        {!isHtmlEmpty(record.description) && (
+                          <RichTextView
+                            html={record.description}
+                            lineClamp={1}
+                            style={{ fontSize: 11, color: 'rgba(0,0,0,0.45)', maxWidth: 300 }}
+                          />
                         )}
                       </div>
                     )
@@ -907,6 +1063,7 @@ export function L10LiveMeetingPage() {
                     title: 'Prioridad',
                     dataIndex: 'priority',
                     key: 'priority',
+                    sorter: (a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority],
                     filters: [
                       { text: 'Alta', value: 'high' },
                       { text: 'Media', value: 'medium' },
@@ -923,31 +1080,36 @@ export function L10LiveMeetingPage() {
                     title: 'Estado',
                     dataIndex: 'status',
                     key: 'status',
+                    sorter: (a, b) => STATUS_RANK[a.status] - STATUS_RANK[b.status],
                     filters: ISSUE_STATUS_OPTIONS.map(o => ({ text: o.label, value: o.value })),
                     onFilter: (value, record) => record.status === value,
                     render: (status, record) => (
-                      <Select
-                        size="small"
-                        style={{ width: 110 }}
-                        value={status}
-                        options={ISSUE_STATUS_OPTIONS}
-                        onChange={(newStatus) => changeIssueStatus(record.id, newStatus)}
-                      />
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <Select
+                          size="small"
+                          style={{ width: 110 }}
+                          value={status}
+                          options={ISSUE_STATUS_OPTIONS}
+                          onChange={(newStatus) => changeIssueStatus(record.id, newStatus)}
+                        />
+                      </span>
                     )
                   },
                   {
                     title: 'Acciones',
                     key: 'actions',
                     render: (_, record) => (
-                      <Button
-                        size="small"
-                        type="primary"
-                        ghost
-                        icon={<Icons.PlusOutlined />}
-                        onClick={() => setCreatingTodo(true)}
-                      >
-                        + To-Do
-                      </Button>
+                      <span onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          size="small"
+                          type="primary"
+                          ghost
+                          icon={<Icons.PlusOutlined />}
+                          onClick={() => setCreatingTodo(true)}
+                        >
+                          + To-Do
+                        </Button>
+                      </span>
                     )
                   },
                   {
@@ -955,7 +1117,7 @@ export function L10LiveMeetingPage() {
                     key: 'discussion',
                     width: 250,
                     render: (_, record) => (
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }} onClick={(e) => e.stopPropagation()}>
                         <div style={{ display: 'flex', gap: 4 }}>
                           <Input
                             size="small"
@@ -978,10 +1140,25 @@ export function L10LiveMeetingPage() {
                   }
                 ]}
               />
+
+              {detailIssue && (
+                <IssueFormModal
+                  open
+                  issue={detailIssue}
+                  members={members}
+                  onClose={() => setDetailIssue(null)}
+                  onSaved={() => {
+                    setDetailIssue(null);
+                    refetchIssues();
+                  }}
+                />
+              )}
             </AgendaSection>
           </div>
+          )}
 
           {/* 7. CONCLUDE */}
+          {activeSection === 'conclude' && (
           <div id="section-conclude" style={{ scrollMarginTop: 24 }}>
             <AgendaSection
               title={SECTIONS_CONFIG[6].label}
@@ -990,21 +1167,57 @@ export function L10LiveMeetingPage() {
               active={activeSection === 'conclude'}
               onActivate={() => changeSection('conclude')}
               onReset={resetSectionTimer}
-              initialSeconds={meeting.currentSectionId === 'conclude' ? meeting.currentSectionAccumulatedSeconds : 0}
+              initialSeconds={meeting.sectionSeconds?.['conclude'] ?? 0}
               timerStartedAt={meeting.currentSectionId === 'conclude' ? meeting.currentSectionStartedAt : null}
               isPaused={meeting.timerIsPaused}
               description="Cierre impecable: 1) Recapitular To-Dos nuevos creados, 2) Mensajes en cascada para la organización, 3) Cada miembro califica la reunión del 1 al 10 (apuntar a media > 8)."
             >
+              <FormItemLabel label={`To-Dos pendientes de revisión (${todos.length})`}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8, marginBottom: 24 }}>
+                  {todos.map((todo) => {
+                    const owner = members.find((m) => m.userId === todo.ownerUserId);
+                    return (
+                      <div
+                        key={todo.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          gap: 12,
+                          padding: '8px 12px',
+                          background: 'rgba(0,0,0,0.02)',
+                          borderRadius: 8,
+                          border: '1px solid rgba(0,0,0,0.06)',
+                        }}
+                      >
+                        <Space size={8} align="start" style={{ flex: 1, minWidth: 0 }}>
+                          <Icons.CheckSquareOutlined style={{ color: todo.status === 'done' ? '#52c41a' : undefined, marginTop: 3, flexShrink: 0 }} />
+                          <RichTextView html={todo.title} style={{ color: 'inherit' }} />
+                        </Space>
+                        <Space size={16} style={{ flexShrink: 0 }}>
+                          <MemberCell member={owner} />
+                          <Typography.Text type="secondary" style={{ fontSize: 12, whiteSpace: 'nowrap' }}>
+                            {todo.dueDate ? dayjs(todo.dueDate).format('DD/MM/YYYY') : '—'}
+                          </Typography.Text>
+                        </Space>
+                      </div>
+                    );
+                  })}
+                  {todos.length === 0 && (
+                    <Typography.Text type="secondary">No hay to-dos pendientes</Typography.Text>
+                  )}
+                </div>
+              </FormItemLabel>
+
               <Row gutter={24}>
                 <Col xs={24} md={ facilitator ? 12 : 24 }>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
                     <FormItemLabel label="Notas de cierre y mensajes en cascada">
-                      <Input.TextArea
-                        rows={6}
+                      <RichTextEditor
                         placeholder="Notas de cierre y acuerdos a comunicar a otros equipos"
                         value={concludeNotesDraft}
-                        onChange={(e) => setConcludeNotesDraft(e.target.value)}
-                        onBlur={(e) => l10Api.update(id!, { concludeNotes: e.target.value })}
+                        onChange={setConcludeNotesDraft}
+                        onBlur={(html) => l10Api.update(id!, { concludeNotes: isHtmlEmpty(html) ? null : html })}
                         disabled={meeting.status === 'completed'}
                       />
                     </FormItemLabel>
@@ -1068,6 +1281,7 @@ export function L10LiveMeetingPage() {
               </Row>
             </AgendaSection>
           </div>
+          )}
         </div>
       </div>
 
@@ -1106,11 +1320,10 @@ export function L10LiveMeetingPage() {
           </Typography.Paragraph>
 
           <FormItemLabel label="Notas de cierre y mensajes en cascada">
-            <Input.TextArea
-              rows={3}
+            <RichTextEditor
               placeholder="Opcional - Notas de cierre y acuerdos a comunicar"
               value={concludeNotesDraft}
-              onChange={(e) => setConcludeNotesDraft(e.target.value)}
+              onChange={setConcludeNotesDraft}
             />
           </FormItemLabel>
 

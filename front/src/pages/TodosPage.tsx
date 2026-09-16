@@ -1,7 +1,8 @@
-import { CheckSquareOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import { Button, Checkbox, message, Popconfirm, Select, Space, Table, Tag, Typography } from 'antd';
+import * as Icons from '@ant-design/icons';
+import { Button, Checkbox, message, Popconfirm, Select, Space, Table, Tag } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
+import { RichTextView } from '../components/RichTextView';
 import { TodoFormModal } from '../components/TodoFormModal';
 import { Template } from '../components/Template';
 import { MemberCell } from '../components/UserAvatar';
@@ -12,6 +13,7 @@ import { useRealtimeSync } from '../hooks/useRealtimeSync';
 
 import { useQuarterOptions } from '../hooks/useQuarterOptions';
 import { currentQuarter } from '../lib/quarters';
+import { CustomSection } from '../components/Templates';
 
 const QUARTER_STORAGE_KEY = 'todos.activeQuarter';
 
@@ -109,9 +111,12 @@ export function TodosPage() {
       key: 'title',
       render: (title: string, todo: Todo) => (
         <a onClick={() => setModalTodo(todo)}>
-          <Space size={8}>
-            <CheckSquareOutlined style={{ color: todo.status === 'done' ? '#52c41a' : undefined }} />
-            <Typography.Text delete={todo.status === 'done'}>{title}</Typography.Text>
+          <Space size={8} align="start">
+            <Icons.CheckSquareOutlined style={{ color: todo.status === 'done' ? '#52c41a' : undefined, marginTop: 3 }} />
+            <RichTextView
+              html={title}
+              style={{ textDecoration: todo.status === 'done' ? 'line-through' : undefined, color: 'inherit' }}
+            />
           </Space>
         </a>
       ),
@@ -155,7 +160,7 @@ export function TodosPage() {
                 okText="Sí"
                 cancelText="No"
               >
-                <Button type="text" danger icon={<DeleteOutlined />} size="small" />
+                <Button type="text" danger icon={<Icons.DeleteOutlined />} size="small" />
               </Popconfirm>
             ),
           },
@@ -166,9 +171,22 @@ export function TodosPage() {
   return (
     <Template
       title="To-Dos"
-      icon={<CheckSquareOutlined />}
+      icon={<Icons.CheckSquareOutlined />}
       subtitle="Compromisos a 7 días del equipo. Cada To-Do debe tener un owner y una fecha límite."
       extra={
+
+          <Button type="primary" icon={<Icons.PlusOutlined />} onClick={() => setModalTodo('new')}>
+            Nuevo To-Do
+          </Button>
+
+      }
+    >
+
+
+      <CustomSection
+        titulo={'Filtros'}
+        icon={<Icons.FilterOutlined />}
+        extra={
         <Space wrap>
           <Select
             allowClear
@@ -188,12 +206,11 @@ export function TodosPage() {
             onChange={setStatusFilter}
             options={(Object.keys(STATUS_LABEL) as TodoStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
           />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalTodo('new')}>
-            Nuevo To-Do
-          </Button>
         </Space>
-      }
-    >
+        }
+      >
+
+
       <Table
         className="glass-panel"
         dataSource={todos}
@@ -202,6 +219,8 @@ export function TodosPage() {
         pagination={false}
       />
 
+      </CustomSection>
+      
       {modalTodo && (
         <TodoFormModal
           open

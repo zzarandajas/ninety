@@ -28,7 +28,7 @@ const updateMeetingSchema = z.object({
   timerIsPaused: z.boolean().optional(),
   currentSectionId: z.string().nullable().optional(),
   currentSectionStartedAt: z.coerce.date().nullable().optional(),
-  currentSectionAccumulatedSeconds: z.number().int().optional(),
+  sectionSeconds: z.record(z.string(), z.number().int()).optional(),
   segueNotes: z.string().nullable().optional(),
   headlines: z.string().nullable().optional(),
   concludeNotes: z.string().nullable().optional(),

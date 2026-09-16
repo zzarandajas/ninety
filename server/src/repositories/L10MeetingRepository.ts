@@ -26,7 +26,7 @@ export type UpdateMeetingInput = Partial<{
   timerIsPaused: boolean;
   currentSectionId: string | null;
   currentSectionStartedAt: Date | null;
-  currentSectionAccumulatedSeconds: number;
+  sectionSeconds: Record<string, number>;
 }>;
 
 export interface MeetingRatingWithUser extends L10MeetingRating {

@@ -9,6 +9,7 @@ export interface ScorecardMetricFilters {
 
 export interface CreateMetricInput {
   name: string;
+  description?: string;
   ownerUserId: string;
   goalValue: number;
   comparison: MetricComparison;
@@ -17,7 +18,7 @@ export interface CreateMetricInput {
   isActive?: boolean;
 }
 
-export type UpdateMetricInput = Partial<CreateMetricInput>;
+export type UpdateMetricInput = Partial<Omit<CreateMetricInput, 'description'>> & { description?: string | null };
 
 function toView(metric: ScorecardMetric): ScorecardMetricView {
   return { ...metric, goalValue: metric.goalValue.toNumber() };

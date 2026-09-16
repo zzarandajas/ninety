@@ -10,8 +10,11 @@ import { Card, Checkbox, Col, message, Row, Select, Space, Table, Tag, Typograph
 import dayjs from 'dayjs';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { IssueFormModal } from '../components/IssueFormModal';
 import { KPICard } from '../components/KPICard';
+import { RockFormModal } from '../components/RockFormModal';
 import { Template } from '../components/Template';
+import { TodoFormModal } from '../components/TodoFormModal';
 import { MemberCell } from '../components/UserAvatar';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useQuarterOptions } from '../hooks/useQuarterOptions';
@@ -57,6 +60,9 @@ export function DashboardPage() {
   const [meetings, setMeetings] = useState<L10Meeting[]>([]);
   const [members, setMembers] = useState<TenantMember[]>([]);
   const [loading, setLoading] = useState(false);
+  const [detailRock, setDetailRock] = useState<Rock | null>(null);
+  const [detailTodo, setDetailTodo] = useState<Todo | null>(null);
+  const [detailIssue, setDetailIssue] = useState<Issue | null>(null);
 
   useEffect(() => {
     if (!activeTenantId) return;
@@ -169,7 +175,10 @@ export function DashboardPage() {
       key: 'check',
       width: 64,
       render: (_: unknown, todo: Todo) => (
-        <span style={{ display: 'inline-flex', transform: 'scale(1.7)', transformOrigin: 'left center', lineHeight: 0 }}>
+        <span
+          style={{ display: 'inline-flex', transform: 'scale(1.7)', transformOrigin: 'left center', lineHeight: 0 }}
+          onClick={(e) => e.stopPropagation()}
+        >
           <Checkbox checked={todo.status === 'done'} onChange={() => handleToggleTodo(todo.id, todo.status)} />
         </span>
       ),
@@ -313,6 +322,10 @@ export function DashboardPage() {
               loading={loading}
               locale={{ emptyText: 'Sin rocks de compañía este trimestre' }}
               size="small"
+              onRow={(record) => ({
+                onClick: () => setDetailRock(record),
+                style: { cursor: 'pointer' },
+              })}
             />
           </Card>
         </Col>
@@ -336,6 +349,10 @@ export function DashboardPage() {
               loading={loading}
               locale={{ emptyText: 'Sin rocks individuales este trimestre' }}
               size="small"
+              onRow={(record) => ({
+                onClick: () => setDetailRock(record),
+                style: { cursor: 'pointer' },
+              })}
             />
           </Card>
         </Col>
@@ -362,6 +379,10 @@ export function DashboardPage() {
               loading={loading}
               locale={{ emptyText: 'Sin to dos pendientes' }}
               size="small"
+              onRow={(record) => ({
+                onClick: () => setDetailTodo(record),
+                style: { cursor: 'pointer' },
+              })}
             />
           </Card>
         </Col>
@@ -385,10 +406,53 @@ export function DashboardPage() {
               loading={loading}
               locale={{ emptyText: 'Sin issues abiertos' }}
               size="small"
+              onRow={(record) => ({
+                onClick: () => setDetailIssue(record),
+                style: { cursor: 'pointer' },
+              })}
             />
           </Card>
         </Col>
       </Row>
+
+      {detailRock && (
+        <RockFormModal
+          open
+          rock={detailRock}
+          members={members}
+          onClose={() => setDetailRock(null)}
+          onSaved={() => {
+            setDetailRock(null);
+            loadDashboardData();
+          }}
+        />
+      )}
+
+      {detailTodo && (
+        <TodoFormModal
+          open
+          todo={detailTodo}
+          members={members}
+          onClose={() => setDetailTodo(null)}
+          onSaved={() => {
+            setDetailTodo(null);
+            loadDashboardData();
+          }}
+        />
+      )}
+
+      {detailIssue && (
+        <IssueFormModal
+          open
+          issue={detailIssue}
+          members={members}
+          onClose={() => setDetailIssue(null)}
+          onSaved={() => {
+            setDetailIssue(null);
+            loadDashboardData();
+          }}
+        />
+      )}
     </Template>
   );
 }

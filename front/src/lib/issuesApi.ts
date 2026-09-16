@@ -31,7 +31,8 @@ export interface CreateIssuePayload {
   quarter: string;
 }
 
-export type UpdateIssuePayload = Partial<CreateIssuePayload> & {
+export type UpdateIssuePayload = Partial<Omit<CreateIssuePayload, 'description'>> & {
+  description?: string | null;
   status?: IssueStatus;
   resolutionNotes?: string | null;
 };

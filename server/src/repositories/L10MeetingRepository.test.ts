@@ -38,7 +38,7 @@ function makeMeeting(overrides: Partial<L10Meeting> = {}): L10Meeting {
     timerIsPaused: false,
     currentSectionId: null,
     currentSectionStartedAt: null,
-    currentSectionAccumulatedSeconds: 0,
+    sectionSeconds: {},
     ...overrides,
   };
 }

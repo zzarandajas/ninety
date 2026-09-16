@@ -1,8 +1,8 @@
-import { ExclamationCircleOutlined, MenuOutlined, PlusOutlined } from '@ant-design/icons';
+import * as Icons from '@ant-design/icons';
 import { DndContext, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Button, message, Select, Space, Table, Tag, Typography } from 'antd';
+import { Button, message, Select, Space, Table, Tag } from 'antd';
 import type { SyntheticListenerMap } from '@dnd-kit/core/dist/hooks/utilities';
 import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type HTMLAttributes } from 'react';
 import { IssueFormModal } from '../components/IssueFormModal';
@@ -15,6 +15,7 @@ import { useAuthStore } from '../store/authStore';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useQuarterOptions } from '../hooks/useQuarterOptions';
 import { currentQuarter } from '../lib/quarters';
+import { CustomSection } from '../components/Templates';
 
 const QUARTER_STORAGE_KEY = 'issues.activeQuarter';
 
@@ -45,7 +46,7 @@ const RowContext = createContext<RowContextProps>({});
 function DragHandle() {
   const { setActivatorNodeRef, listeners } = useContext(RowContext);
   return (
-    <MenuOutlined
+    <Icons.MenuOutlined
       ref={setActivatorNodeRef}
       aria-label="Arrastrar para reordenar"
       style={{ touchAction: 'none', cursor: 'grab' }}
@@ -148,7 +149,7 @@ export function IssuesPage() {
       key: 'title',
       render: (title: string, issue: Issue) => (
         <Space>
-          <ExclamationCircleOutlined style={{ color: 'var(--brand-green)' }} />
+          <Icons.ExclamationCircleOutlined style={{ color: 'var(--brand-green)' }} />
           <a onClick={() => setModalIssue(issue)}>{title}</a>
         </Space>
       ),
@@ -174,9 +175,21 @@ export function IssuesPage() {
   return (
     <Template
       title="Issues"
-      icon={<ExclamationCircleOutlined />}
+      icon={<Icons.ExclamationCircleOutlined />}
       subtitle="Backlog de issues priorizados para IDS: identificar, discutir y resolver."
       extra={
+
+          <Button type="primary" icon={<Icons.PlusOutlined />} onClick={() => setModalIssue('new')}>
+            Nuevo issue
+          </Button>
+
+      }
+    >
+
+      <CustomSection
+        titulo={'Filtros'}
+        icon={<Icons.FilterOutlined />}
+        extra={
         <Space wrap>
           <Select
             allowClear
@@ -196,12 +209,9 @@ export function IssuesPage() {
             onChange={setStatusFilter}
             options={(Object.keys(STATUS_LABEL) as IssueStatus[]).map((s) => ({ value: s, label: STATUS_LABEL[s] }))}
           />
-          <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalIssue('new')}>
-            Nuevo issue
-          </Button>
         </Space>
-      }
-    >
+        }
+      >
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
         <SortableContext items={issues.map((i) => i.id)} strategy={verticalListSortingStrategy}>
           <Table
@@ -213,7 +223,10 @@ export function IssuesPage() {
             pagination={false}
           />
         </SortableContext>
-      </DndContext>
+      </DndContext>        
+      </CustomSection>
+
+
 
       {modalIssue && (
         <IssueFormModal

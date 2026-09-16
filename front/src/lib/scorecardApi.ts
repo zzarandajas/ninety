@@ -7,6 +7,7 @@ export interface ScorecardMetric {
   id: string;
   tenantId: string;
   name: string;
+  description: string | null;
   ownerUserId: string;
   goalValue: number;
   comparison: MetricComparison;
@@ -27,6 +28,7 @@ export interface ScorecardEntry {
 
 export interface CreateMetricPayload {
   name: string;
+  description?: string;
   ownerUserId: string;
   goalValue: number;
   comparison: MetricComparison;
@@ -35,7 +37,7 @@ export interface CreateMetricPayload {
   isActive?: boolean;
 }
 
-export type UpdateMetricPayload = Partial<CreateMetricPayload>;
+export type UpdateMetricPayload = Partial<Omit<CreateMetricPayload, 'description'>> & { description?: string | null };
 
 function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
   const search = new URLSearchParams();

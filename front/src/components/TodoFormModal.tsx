@@ -1,10 +1,12 @@
 import { CheckSquareOutlined, CloseOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
-import { Button, Col, DatePicker, Form, Input, message, Modal, Popconfirm, Row, Select, Space } from 'antd';
+import { Button, Col, DatePicker, Form, message, Modal, Popconfirm, Row, Select, Space } from 'antd';
 import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
+import { isHtmlEmpty } from '../lib/richText';
 import { todosApi, type Todo, type TodoStatus } from '../lib/todosApi';
 import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
+import { RichTextEditor } from './RichTextEditor';
 import { UserSelect } from './UserSelect';
 
 import { currentQuarter } from '../lib/quarters';
@@ -100,8 +102,17 @@ export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose
       destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
-        <Form.Item name="title" label="Descripción de la tarea" rules={[{ required: true, message: 'Introduce un título' }]}>
-          <Input placeholder="Ej. Enviar propuesta revisada a Cliente X" />
+        <Form.Item
+          name="title"
+          label="Descripción de la tarea"
+          rules={[
+            {
+              validator: (_, value) =>
+                isHtmlEmpty(value) ? Promise.reject(new Error('Introduce un título')) : Promise.resolve(),
+            },
+          ]}
+        >
+          <RichTextEditor placeholder="Ej. Enviar propuesta revisada a Cliente X" />
         </Form.Item>
 
         <Row gutter={16}>

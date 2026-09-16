@@ -261,6 +261,24 @@ body {
   cursor: pointer;
 }
 
+.agenda-section--active.agenda-section--overtime {
+  background: rgba(255, 77, 79, 0.06);
+}
+
+.rich-text-view p {
+  margin: 0;
+}
+
+.rich-text-view p + p {
+  margin-top: 0.4em;
+}
+
+.rich-text-view ul,
+.rich-text-view ol {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
 .scorecard-grid {
   background: var(--glass-bg-elevated);
   border: 1px solid var(--glass-border);
@@ -268,6 +286,15 @@ body {
   box-shadow: var(--glass-shadow);
 }
 
+
+.ql-container.ql-snow,.ql-toolbar.ql-snow {
+     border: 0px solid #ccc; 
+}
+
+.quill {
+  border:2px solid #f2f2f2;
+  border-radius: 16px;
+}
 /* ---------- Login screen ---------- */
 
 .login-page {

@@ -220,6 +220,7 @@ model ScorecardMetric {
   id              String           @id @default(uuid())
   tenantId        String           @map("tenant_id")
   name            String
+  description     String?
   ownerUserId     String           @map("owner_user_id")
   goalValue       Decimal          @map("goal_value")
   comparison      MetricComparison @default(gte)
@@ -288,9 +289,10 @@ model L10Meeting {
   timerIsPaused           Boolean   @default(false) @map("timer_is_paused")
 
   // Section Timer fields
-  currentSectionId                 String?   @map("current_section_id")
-  currentSectionStartedAt          DateTime? @map("current_section_started_at")
-  currentSectionAccumulatedSeconds Int       @default(0) @map("current_section_accumulated_seconds")
+  currentSectionId        String?   @map("current_section_id")
+  currentSectionStartedAt DateTime? @map("current_section_started_at")
+  // Segundos acumulados por sección (clave = Section id), independientes entre sí
+  sectionSeconds          Json      @default("{}") @map("section_seconds")
 
   createdAt         DateTime      @default(now()) @map("created_at")
   updatedAt         DateTime      @default(now()) @updatedAt @map("updated_at")

@@ -1,6 +1,8 @@
 import { SaveOutlined } from '@ant-design/icons';
-import { Button, Form, Input, message, Select, Typography } from 'antd';
+import { Button, Form, message, Select, Typography } from 'antd';
 import { useEffect } from 'react';
+import { RichTextEditor } from '../RichTextEditor';
+import { isHtmlEmpty } from '../../lib/richText';
 import { vtoApi, type VTODocument } from '../../lib/vtoApi';
 
 export interface MarketingStrategyFormProps {
@@ -35,10 +37,10 @@ export function MarketingStrategyForm({ document, onSaved }: MarketingStrategyFo
     try {
       const updated = await vtoApi.update({
         marketingStrategy: {
-          targetMarket: values.targetMarket ?? '',
+          targetMarket: isHtmlEmpty(values.targetMarket) ? '' : values.targetMarket,
           threeUniques: values.threeUniques ?? [],
-          provenProcess: values.provenProcess ?? '',
-          guarantee: values.guarantee ?? '',
+          provenProcess: isHtmlEmpty(values.provenProcess) ? '' : values.provenProcess,
+          guarantee: isHtmlEmpty(values.guarantee) ? '' : values.guarantee,
         },
       });
       onSaved(updated);
@@ -51,16 +53,16 @@ export function MarketingStrategyForm({ document, onSaved }: MarketingStrategyFo
   return (
     <Form form={form} layout='vertical' onFinish={handleSubmit}>
       <Form.Item name='targetMarket' label='Target Market ("The List")'>
-        <Input.TextArea rows={2} />
+        <RichTextEditor />
       </Form.Item>
       <Form.Item name='threeUniques' label='The Three Uniques'>
         <Select mode='tags' placeholder='Escribe una diferencia y pulsa Enter' tokenSeparators={[',']} />
       </Form.Item>
       <Form.Item name='provenProcess' label='Proven Process'>
-        <Input.TextArea rows={3} />
+        <RichTextEditor />
       </Form.Item>
       <Form.Item name='guarantee' label='Guarantee'>
-        <Input.TextArea rows={2} />
+        <RichTextEditor />
       </Form.Item>
       <Typography.Paragraph type='secondary'>
         The Three Uniques describe qué os diferencia realmente de la competencia.

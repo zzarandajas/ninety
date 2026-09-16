@@ -1,6 +1,8 @@
 import { SaveOutlined } from '@ant-design/icons';
-import { Button, Form, Input, message, Typography } from 'antd';
+import { Button, Form, message, Typography } from 'antd';
 import { useEffect } from 'react';
+import { RichTextEditor } from '../RichTextEditor';
+import { isHtmlEmpty } from '../../lib/richText';
 import { vtoApi, type VTODocument } from '../../lib/vtoApi';
 
 export interface CoreFocusFormProps {
@@ -32,9 +34,9 @@ export function CoreFocusForm({ document, onSaved }: CoreFocusFormProps) {
   async function handleSubmit(values: FormValues) {
     try {
       const updated = await vtoApi.update({
-        coreFocusPurpose: values.coreFocusPurpose ?? null,
-        coreFocusNiche: values.coreFocusNiche ?? null,
-        tenYearTarget: values.tenYearTarget ?? null,
+        coreFocusPurpose: isHtmlEmpty(values.coreFocusPurpose) ? null : values.coreFocusPurpose,
+        coreFocusNiche: isHtmlEmpty(values.coreFocusNiche) ? null : values.coreFocusNiche,
+        tenYearTarget: isHtmlEmpty(values.tenYearTarget) ? null : values.tenYearTarget,
       });
       onSaved(updated);
       message.success('Core Focus guardado');
@@ -47,16 +49,16 @@ export function CoreFocusForm({ document, onSaved }: CoreFocusFormProps) {
     <Form form={form} layout="vertical" onFinish={handleSubmit}>
       <Typography.Title level={5}>Core Focus</Typography.Title>
       <Form.Item name="coreFocusPurpose" label="Propósito / Causa / Pasión">
-        <Input.TextArea rows={2} />
+        <RichTextEditor />
       </Form.Item>
       <Form.Item name="coreFocusNiche" label="Nicho">
-        <Input.TextArea rows={2} />
+        <RichTextEditor />
       </Form.Item>
       <Typography.Title level={5} style={{ marginTop: 24 }}>
         10-Year Target
       </Typography.Title>
       <Form.Item name="tenYearTarget" label="Objetivo a 10 años">
-        <Input.TextArea rows={2} />
+        <RichTextEditor />
       </Form.Item>
       <Button type="primary" htmlType="submit" icon={<SaveOutlined />}>
         Guardar sección

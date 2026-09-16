@@ -70,7 +70,11 @@ export function AgendaSection({
   if (overTarget) progressColor = '#ff4d4f'; // danger red
 
   return (
-    <div className={`agenda-section ${active ? 'agenda-section--active' : 'agenda-section--collapsed'}`}>
+    <div
+      className={`agenda-section ${active ? 'agenda-section--active' : 'agenda-section--collapsed'} ${
+        active && overTarget ? 'agenda-section--overtime' : ''
+      }`}
+    >
       <div
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
         onClick={active ? undefined : onActivate}

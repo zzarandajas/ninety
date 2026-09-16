@@ -38,7 +38,10 @@ export interface CreateRockPayload {
   dueDate: string;
 }
 
-export type UpdateRockPayload = Partial<CreateRockPayload> & { status?: RockStatus };
+export type UpdateRockPayload = Partial<Omit<CreateRockPayload, 'description'>> & {
+  description?: string | null;
+  status?: RockStatus;
+};
 
 function buildQuery(filters: RockFilters): string {
   const params = new URLSearchParams();

@@ -31,7 +31,7 @@ export interface L10Meeting {
   timerIsPaused: boolean;
   currentSectionId: string | null;
   currentSectionStartedAt: string | null;
-  currentSectionAccumulatedSeconds: number;
+  sectionSeconds: Record<string, number>;
   ratings?: MeetingRating[];
 }
 
@@ -68,7 +68,7 @@ export type UpdateMeetingPayload = Partial<{
   timerIsPaused: boolean;
   currentSectionId: string | null;
   currentSectionStartedAt: string | null;
-  currentSectionAccumulatedSeconds: number;
+  sectionSeconds: Record<string, number>;
 }>;
 
 export interface CloseMeetingPayload {

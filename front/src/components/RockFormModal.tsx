@@ -19,9 +19,11 @@ import dayjs from 'dayjs';
 import { useEffect, useState } from 'react';
 import { useQuarterOptions } from '../hooks/useQuarterOptions';
 import { currentQuarter, currentQuarterEndDate } from '../lib/quarters';
+import { isHtmlEmpty } from '../lib/richText';
 import { rocksApi, type Milestone, type Rock } from '../lib/rocksApi';
 import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
+import { RichTextEditor } from './RichTextEditor';
 import { UserSelect } from './UserSelect';
 
 export interface RockFormModalProps {
@@ -76,16 +78,22 @@ export function RockFormModal({ open, rock, members, onClose, onSaved }: RockFor
     try {
       const payload = {
         title: values.title,
-        description: values.description,
         ownerUserId: values.ownerUserId,
         quarter: values.quarter,
         isCompanyRock: values.isCompanyRock,
         dueDate: values.dueDate.toISOString(),
       };
       if (rock) {
-        await rocksApi.update(rock.id, { ...payload, status: values.status });
+        await rocksApi.update(rock.id, {
+          ...payload,
+          description: isHtmlEmpty(values.description) ? null : values.description,
+          status: values.status,
+        });
       } else {
-        await rocksApi.create(payload);
+        await rocksApi.create({
+          ...payload,
+          description: isHtmlEmpty(values.description) ? undefined : values.description,
+        });
       }
       onSaved();
     } catch (e) {
@@ -162,7 +170,7 @@ export function RockFormModal({ open, rock, members, onClose, onSaved }: RockFor
         </Form.Item>
 
         <Form.Item name="description" label="Descripción / Detalle">
-          <Input.TextArea rows={2} placeholder="Suma de contexto, métricas clave para darlo por conseguido..." />
+          <RichTextEditor placeholder="Suma de contexto, métricas clave para darlo por conseguido..." />
         </Form.Item>
 
         <Row gutter={16}>

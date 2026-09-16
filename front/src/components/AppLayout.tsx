@@ -13,11 +13,13 @@ import {
   MenuUnfoldOutlined,
   RocketOutlined,
   SettingOutlined,
+  TagOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import { Avatar, Button, Dropdown, Layout, Menu, Modal, Typography, type MenuProps } from 'antd';
 import { useState } from 'react';
 import { Link, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { version as appVersion } from '../../package.json';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
 import { useAuthStore } from '../store/authStore';
 import { PageHeaderContext, type PageHeaderData } from './pageHeaderContext';
@@ -112,7 +114,12 @@ export function AppLayout() {
       <Layout style={{ height: '100dvh', overflow: 'hidden', background: 'transparent' }}>
         <Layout.Sider
           className="glass-panel app-sider"
-          style={{ margin: '16px 0 16px 16px', border: '2px solid transparent' }}
+          style={{
+            margin: '16px 0 16px 16px',
+            border: '2px solid transparent',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
           theme="light"
           width={232}
           collapsible
@@ -184,6 +191,7 @@ export function AppLayout() {
           </div>
           <Menu
             mode="inline"
+            style={{ flex: 1, overflow: 'auto' }}
             selectedKeys={selectedNavItem ? [selectedNavItem.key] : []}
             items={NAV_ITEMS.map((item) => ({
               key: item.key,
@@ -191,6 +199,21 @@ export function AppLayout() {
               label: <Link to={item.key}>{item.title}</Link>,
             }))}
           />
+          <div
+            title={`Versión ${appVersion}`}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 6,
+              padding: '10px 0',
+              fontSize: 12,
+              color: 'var(--corp-ink-muted)',
+            }}
+          >
+            <TagOutlined />
+            {!collapsed && <span>v{appVersion}</span>}
+          </div>
         </Layout.Sider>
         <Layout style={{ background: 'transparent', minWidth: 0, overflow: 'hidden' }}>
           {impersonating && <ImpersonationBanner />}

@@ -10,6 +10,7 @@ const frequencySchema = z.enum(['weekly', 'monthly']);
 
 const createMetricSchema = z.object({
   name: z.string().min(1),
+  description: z.string().optional(),
   ownerUserId: z.string().min(1),
   goalValue: z.number(),
   comparison: comparisonSchema,
@@ -20,6 +21,7 @@ const createMetricSchema = z.object({
 
 const updateMetricSchema = z.object({
   name: z.string().min(1).optional(),
+  description: z.string().nullable().optional(),
   ownerUserId: z.string().min(1).optional(),
   goalValue: z.number().optional(),
   comparison: comparisonSchema.optional(),

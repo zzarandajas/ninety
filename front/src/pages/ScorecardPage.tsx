@@ -10,6 +10,8 @@ import { tenantApi, type TenantMember } from '../lib/tenantApi';
 import { lastNMondays, lastNMonths } from '../lib/weeks';
 import { useAuthStore } from '../store/authStore';
 import { useRealtimeSync } from '../hooks/useRealtimeSync';
+import { CustomSection } from '../components/Templates';
+import { UserSelect } from '../components/UserSelect';
 
 const STATUS_BG: Record<string, string> = {
   met: 'var(--status-on-track)',
@@ -220,33 +222,44 @@ export function ScorecardPage() {
       icon={<Icons.BarChartOutlined />}
       subtitle="Métricas del cuadro de mando: objetivo, tendencia y avance."
       extra={
-        <Space align="center" wrap>
-          <Radio.Group value={frequencyFilter} onChange={(e) => setFrequencyFilter(e.target.value)} size="middle">
-            <Radio.Button value="all">Todas (Sem.)</Radio.Button>
-            <Radio.Button value="weekly">Semanales</Radio.Button>
-            <Radio.Button value="monthly">Mensuales</Radio.Button>
-          </Radio.Group>
-          <div style={{ width: 16 }} />
-          <Space align="center">
-            <Switch checked={showInactive} onChange={setShowInactive} aria-label="Mostrar inactivas" />
-            <Typography.Text>Mostrar inactivas</Typography.Text>
-          </Space>
-          <Button type="primary" icon={<Icons.PlusOutlined />} onClick={() => setModalMetric('new')}>
-            Nueva métrica
-          </Button>
-        </Space>
+        <Button type="primary" icon={<Icons.PlusOutlined />} onClick={() => setModalMetric('new')}>
+          Nueva métrica
+        </Button>
       }
     >
-      <div ref={tableRef}>
-        <Table
-          className="glass-panel"
-          dataSource={filteredMetrics}
-          columns={columns}
-          rowKey="id"
-          pagination={false}
-          scroll={{ x: 1500 }} // Increased x scroll for better visibility
-        />
-      </div>
+
+
+      <CustomSection
+        titulo={'Filtros'}
+        icon={<Icons.FilterOutlined />}
+        extra={
+          <Space align="center" wrap>
+            <Radio.Group value={frequencyFilter} onChange={(e) => setFrequencyFilter(e.target.value)} size="middle">
+              <Radio.Button value="all">Todas (Sem.)</Radio.Button>
+              <Radio.Button value="weekly">Semanales</Radio.Button>
+              <Radio.Button value="monthly">Mensuales</Radio.Button>
+            </Radio.Group>
+            <div style={{ width: 16 }} />
+            <Space align="center">
+              <Switch checked={showInactive} onChange={setShowInactive} aria-label="Mostrar inactivas" />
+              <Typography.Text>Mostrar inactivas</Typography.Text>
+            </Space>
+          </Space>
+        }
+      >
+        <div ref={tableRef}>
+          <Table
+            className="glass-panel"
+            dataSource={filteredMetrics}
+            columns={columns}
+            rowKey="id"
+            pagination={false}
+            scroll={{ x: 1500 }} // Increased x scroll for better visibility
+          />
+        </div>
+
+      </CustomSection>
+
 
       {modalMetric && (
         <ScorecardMetricFormModal
