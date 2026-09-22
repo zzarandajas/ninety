@@ -107,7 +107,7 @@ export function TodoFormModal({ open, todo, members, meetingId, quarter, onClose
           subtitle="Acción concreta y asignada con objetivo de cumplimiento en una semana."
         />
       }
-      width={500}
+      width={600}
       destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>

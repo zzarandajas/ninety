@@ -99,7 +99,7 @@ export function IssueFormModal({ open, issue, members, quarter, onClose, onSaved
           subtitle="Captura un problema u oportunidad para discutir y resolver en reunión L10."
         />
       }
-      width={540}
+      width={640}
       destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>

@@ -161,7 +161,7 @@ export function RockFormModal({ open, rock, members, onClose, onSaved }: RockFor
           subtitle="Define objetivos a 90 días alineados con el V/TO de la organización."
         />
       }
-      width={560}
+      width={660}
       destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>

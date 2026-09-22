@@ -88,7 +88,7 @@ export function ScorecardMetricFormModal({ open, metric, members, onClose, onSav
           subtitle="Indicador clave semanal o mensual para medir la salud del negocio."
         />
       }
-      width={520}
+      width={620}
       destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
