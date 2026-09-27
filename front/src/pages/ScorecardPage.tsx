@@ -36,7 +36,7 @@ function trendData(entries: ScorecardEntry[], metricId: string, periods: Date[])
 
 export function ScorecardPage() {
   const activeTenantId = useAuthStore((state) => state.activeTenantId);
-  const currentUserEmail = useAuthStore((state) => state.user?.email);
+  const currentUserId = useAuthStore((state) => state.user?.id);
   const [metrics, setMetrics] = useState<ScorecardMetric[]>([]);
   const [entries, setEntries] = useState<ScorecardEntry[]>([]);
   const [members, setMembers] = useState<TenantMember[]>([]);
@@ -282,7 +282,8 @@ export function ScorecardPage() {
           open
           mode={importMode}
           metrics={metrics}
-          defaultOwnerEmail={currentUserEmail}
+          members={members}
+          defaultOwnerUserId={currentUserId}
           onClose={() => setImportMode(null)}
           onImported={() => {
             setImportMode(null);

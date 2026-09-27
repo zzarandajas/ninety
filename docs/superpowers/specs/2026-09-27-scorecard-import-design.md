@@ -25,7 +25,7 @@ desde otros sistemas sin teclear celda a celda en la grid del Scorecard.
 Alta de métricas — `codigo;nombre;descripcion;responsable_email;objetivo;comparacion;frecuencia;unidad`
 - `comparacion`: `>=`, `<=`, `=` (también `gte`, `lte`, `eq`)
 - `frecuencia`: `semanal`/`mensual` (también `weekly`/`monthly`)
-- `responsable_email`: debe ser miembro activo del tenant
+- Responsable: el modal pide uno (por defecto el usuario actual) para todas las filas; `responsable_email` es opcional y, si viene relleno, manda para esa fila (debe ser miembro activo del tenant)
 - Código ya existente en el tenant o repetido en el fichero → error
 
 Valores — `codigo;periodo;valor`

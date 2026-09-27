@@ -276,6 +276,49 @@ describe('scorecard routes', () => {
       await app.close();
     });
 
+    it('POST /scorecard/metrics/import assigns the chosen ownerUserId to rows without email', async () => {
+      const { prisma } = await import('../lib/prisma.js');
+      vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
+      vi.mocked(prisma.tenantMembership.findMany).mockResolvedValue([memberRaw] as never);
+      vi.mocked(prisma.scorecardMetric.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.scorecardMetric.create).mockResolvedValue(baseMetricRaw as never);
+
+      const csv = 'codigo;nombre;objetivo;comparacion;frecuencia\nLEADS;Leads;10;>=;semanal';
+      const { app, headers } = await authedApp();
+      const response = await app.inject({
+        method: 'POST',
+        url: '/scorecard/metrics/import',
+        headers,
+        payload: { csv, ownerUserId: 'user-1' },
+      });
+
+      expect(response.statusCode).toBe(201);
+      expect(prisma.scorecardMetric.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ code: 'LEADS', ownerUserId: 'user-1' }),
+      });
+      await app.close();
+    });
+
+    it('POST /scorecard/metrics/import rejects an ownerUserId that is not a member of the tenant', async () => {
+      const { prisma } = await import('../lib/prisma.js');
+      vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
+      vi.mocked(prisma.tenantMembership.findMany).mockResolvedValue([memberRaw] as never);
+      vi.mocked(prisma.scorecardMetric.findMany).mockResolvedValue([] as never);
+
+      const csv = 'codigo;nombre;objetivo;comparacion;frecuencia\nLEADS;Leads;10;>=;semanal';
+      const { app, headers } = await authedApp();
+      const response = await app.inject({
+        method: 'POST',
+        url: '/scorecard/metrics/import',
+        headers,
+        payload: { csv, ownerUserId: 'user-from-cionet' },
+      });
+
+      expect(response.statusCode).toBe(400);
+      expect(prisma.scorecardMetric.create).not.toHaveBeenCalled();
+      await app.close();
+    });
+
     it('POST /scorecard/entries/import only resolves codes of the active tenant metrics', async () => {
       const { prisma } = await import('../lib/prisma.js');
       vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);

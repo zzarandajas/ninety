@@ -68,8 +68,11 @@ export const scorecardApi = {
 
   deleteMetric: (id: string) => apiFetch<void>(`/scorecard/metrics/${id}`, { method: 'DELETE' }),
 
-  importMetrics: (csv: string) =>
-    apiFetch<{ created: number }>('/scorecard/metrics/import', { method: 'POST', body: JSON.stringify({ csv }) }),
+  importMetrics: (csv: string, ownerUserId?: string) =>
+    apiFetch<{ created: number }>('/scorecard/metrics/import', {
+      method: 'POST',
+      body: JSON.stringify({ csv, ownerUserId }),
+    }),
 
   importEntries: (csv: string) =>
     apiFetch<{ upserted: number }>('/scorecard/entries/import', { method: 'POST', body: JSON.stringify({ csv }) }),

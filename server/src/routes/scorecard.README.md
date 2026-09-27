@@ -15,7 +15,7 @@ la grid). Todas las rutas requieren `Authorization: Bearer <token>` y
 - `GET /scorecard/entries?weeks=12` — todas las entradas del tenant desde hace `weeks` semanas hasta hoy (default 12), de todas las métricas a la vez — el frontend cruza por `metricId`+`periodStart` para construir la grid, no hay un endpoint por métrica.
 - `PUT /scorecard/entries` — upsert de una celda. Body: `{ metricId, periodStart, actualValue }`. `enteredByUserId` se toma siempre de `request.user.userId`, nunca del body. 404 si `metricId` no existe en el tenant.
 
-- `POST /scorecard/metrics/import` — alta masiva desde CSV. Body `{ csv }`. 201 `{ created }`.
+- `POST /scorecard/metrics/import` — alta masiva desde CSV. Body `{ csv, ownerUserId? }`. 201 `{ created }`. `ownerUserId` (el responsable elegido en el modal) debe ser miembro activo del tenant (400 si no).
 - `POST /scorecard/entries/import` — carga masiva de valores desde CSV. Body `{ csv }`. 200 `{ upserted }`.
 
 ## Importación CSV (alta masiva y valores)
@@ -32,9 +32,12 @@ Spec: `docs/superpowers/specs/2026-09-27-scorecard-import-design.md`.
   errores) y no se escribe nada. Si todo es válido, se escribe en una sola
   `$transaction` (`createMany` / `upsertMany` de los repositorios).
 - **Alta de métricas** — columnas `codigo, nombre, descripcion?,
-  responsable_email, objetivo, comparacion (>=, <=, =), frecuencia (semanal,
-  mensual), unidad? (# por defecto)`. El email debe ser miembro activo del
-  tenant; código ya existente en el tenant o repetido en el fichero → error.
+  responsable_email?, objetivo, comparacion (>=, <=, =), frecuencia (semanal,
+  mensual), unidad? (# por defecto)`. Responsable: el modal pide uno
+  (`ownerUserId`, por defecto el usuario actual) que se asigna a toda fila con
+  `responsable_email` vacío; si la fila trae email, manda el email (debe ser
+  miembro activo del tenant). Fila sin email y sin `ownerUserId` → error.
+  Código ya existente en el tenant o repetido en el fichero → error.
 - **Valores** — columnas `codigo, periodo, valor`. La métrica se busca por
   `code` **solo entre las métricas del tenant activo** (un código de Cionet es
   "desconocido" en Tasvalor). Semanal: fecha `AAAA-MM-DD` o `DD/MM/AAAA`,

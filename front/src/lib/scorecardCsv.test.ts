@@ -29,11 +29,11 @@ describe('toCsv', () => {
 });
 
 describe('buildMetricsTemplate', () => {
-  it('has the header the server expects and uses the given owner email in examples', () => {
-    const rows = lines(buildMetricsTemplate('ana@tasvalor.com'));
+  it('has the header the server expects and leaves responsable_email blank (owner is picked on upload)', () => {
+    const rows = lines(buildMetricsTemplate());
     expect(rows[0]).toBe('codigo;nombre;descripcion;responsable_email;objetivo;comparacion;frecuencia;unidad');
     expect(rows).toHaveLength(3);
-    expect(rows[1]).toContain('ana@tasvalor.com');
+    expect(rows[1].split(';')[3]).toBe('');
   });
 });
 

@@ -22,7 +22,7 @@ export const METRIC_IMPORT_COLUMNS = [
   'frecuencia',
   'unidad',
 ] as const;
-const METRIC_REQUIRED_COLUMNS = ['codigo', 'nombre', 'responsable_email', 'objetivo', 'comparacion', 'frecuencia'];
+const METRIC_REQUIRED_COLUMNS = ['codigo', 'nombre', 'objetivo', 'comparacion', 'frecuencia'];
 
 export const ENTRY_IMPORT_COLUMNS = ['codigo', 'periodo', 'valor'] as const;
 
@@ -56,6 +56,8 @@ export interface MetricImportContext {
   memberIdByEmail: Map<string, string>;
   /** upper-cased codes already used in the tenant */
   existingCodes: Set<string>;
+  /** Owner chosen in the upload dialog; used for rows whose `responsable_email` is blank. */
+  defaultOwnerUserId?: string;
 }
 
 export interface EntryImportContext {
@@ -195,8 +197,8 @@ export function validateMetricImport(csv: string, ctx: MetricImportContext): Imp
     if (!name) fail('nombre', 'El nombre es obligatorio');
 
     const email = get('responsable_email').toLowerCase();
-    const ownerUserId = ctx.memberIdByEmail.get(email);
-    if (!email) fail('responsable_email', 'El email del responsable es obligatorio');
+    const ownerUserId = email ? ctx.memberIdByEmail.get(email) : ctx.defaultOwnerUserId;
+    if (!email && !ownerUserId) fail('responsable_email', 'Sin responsable: elige uno al subir el fichero o rellena el email');
     else if (!ownerUserId) fail('responsable_email', `"${email}" no es miembro activo de esta organización`);
 
     const goalValue = parseDecimal(get('objetivo'));

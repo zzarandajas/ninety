@@ -66,6 +66,10 @@ const importSchema = z.object({
   csv: z.string().min(1, 'El fichero está vacío').max(MAX_IMPORT_CSV_LENGTH, 'El fichero supera 1 MB'),
 });
 
+const metricImportSchema = importSchema.extend({
+  ownerUserId: z.string().min(1).optional(),
+});
+
 function weeksAgo(weeks: number): Date {
   const date = new Date();
   date.setDate(date.getDate() - weeks * 7);
@@ -95,14 +99,19 @@ export default async function scorecardRoutes(app: FastifyInstance): Promise<voi
   });
 
   app.post('/metrics/import', { preHandler: requireTenant(app), bodyLimit: IMPORT_BODY_LIMIT }, async (request, reply) => {
-    const { csv } = importSchema.parse(request.body);
+    const { csv, ownerUserId } = metricImportSchema.parse(request.body);
     const tenantId = request.tenantId as string;
     const metricRepo = new ScorecardMetricRepository(tenantId);
 
     const [members, metrics] = await Promise.all([new TenantMemberRepository(tenantId).findAll(), metricRepo.findAll()]);
+    // The default owner must be an active member of *this* tenant, never trusted from the body as-is.
+    if (ownerUserId && !members.some((member) => member.userId === ownerUserId)) {
+      return reply.code(400).send({ error: 'El responsable elegido no es miembro activo de esta organización' });
+    }
     const result = validateMetricImport(csv, {
       memberIdByEmail: new Map(members.map((member) => [member.email.toLowerCase(), member.userId])),
       existingCodes: new Set(metrics.flatMap((metric) => (metric.code ? [metric.code] : []))),
+      defaultOwnerUserId: ownerUserId,
     });
     if (!result.ok) {
       return reply.code(400).send({ error: 'El fichero tiene errores, no se ha importado nada', errors: result.errors });

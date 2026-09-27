@@ -29,6 +29,11 @@ const metric: ScorecardMetric = {
   isActive: true,
 };
 
+const members = [
+  { userId: 'u1', fullName: 'Ana', email: 'ana@tasvalor.com', avatarUrl: null, role: 'owner' as const },
+  { userId: 'u2', fullName: 'Luis', email: 'luis@tasvalor.com', avatarUrl: null, role: 'member' as const },
+];
+
 function csvFile(content: string) {
   return new File([content], 'valores.csv', { type: 'text/csv' });
 }
@@ -78,7 +83,17 @@ describe('ScorecardImportModal', () => {
       })
     );
     const onImported = vi.fn();
-    render(<ScorecardImportModal open mode="metrics" metrics={[]} onClose={vi.fn()} onImported={onImported} />);
+    render(
+      <ScorecardImportModal
+        open
+        mode="metrics"
+        metrics={[]}
+        members={members}
+        defaultOwnerUserId="u1"
+        onClose={vi.fn()}
+        onImported={onImported}
+      />
+    );
 
     await uploadFile(csvFile('codigo;nombre'));
     await userEvent.click(screen.getByRole('button', { name: /importar$/i }));
@@ -87,6 +102,39 @@ describe('ScorecardImportModal', () => {
     expect(screen.getByText(/no es miembro activo/)).toBeInTheDocument();
     expect(screen.getByText('Responsable')).toBeInTheDocument();
     expect(onImported).not.toHaveBeenCalled();
+  });
+
+  it('asks for the owner in metrics mode: pre-selects the current user and sends the chosen one', async () => {
+    const { scorecardApi } = await import('../lib/scorecardApi');
+    vi.mocked(scorecardApi.importMetrics).mockResolvedValue({ created: 2 });
+    render(
+      <ScorecardImportModal
+        open
+        mode="metrics"
+        metrics={[]}
+        members={members}
+        defaultOwnerUserId="u1"
+        onClose={vi.fn()}
+        onImported={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/a qué responsable se asignan/i)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('combobox', { name: /responsable de las métricas/i }));
+    await userEvent.click(await screen.findByText('Luis'));
+    await uploadFile(csvFile('codigo;nombre;objetivo;comparacion;frecuencia\nA;B;1;>=;semanal'));
+    await userEvent.click(screen.getByRole('button', { name: /importar$/i }));
+
+    await waitFor(() => expect(scorecardApi.importMetrics).toHaveBeenCalledWith(expect.any(String), 'u2'));
+  });
+
+  it('keeps Importar disabled in metrics mode until an owner is chosen', async () => {
+    render(
+      <ScorecardImportModal open mode="metrics" metrics={[]} members={members} onClose={vi.fn()} onImported={vi.fn()} />
+    );
+
+    await uploadFile(csvFile('codigo;nombre'));
+    expect(screen.getByRole('button', { name: /importar$/i })).toBeDisabled();
   });
 
   it('warns how many active metrics have no code in entries mode', () => {

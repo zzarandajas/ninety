@@ -138,7 +138,31 @@ describe('validateMetricImport', () => {
     const result = validateMetricImport('codigo;nombre\nA;B', metricCtx());
     expect(result).toEqual({
       ok: false,
-      errors: [{ row: 1, message: expect.stringContaining('responsable_email') }],
+      errors: [{ row: 1, message: expect.stringContaining('objetivo') }],
+    });
+    if (!result.ok) expect(result.errors[0].message).not.toContain('responsable_email');
+  });
+
+  it('assigns the default owner to rows without email; a filled email still wins for its row', () => {
+    const csv = [
+      'codigo;nombre;objetivo;comparacion;frecuencia',
+      'A;Sin columna email;1;>=;semanal',
+    ].join('\n');
+    const withEmailColumn = [HEADER, 'B;Vacío;;;1;>=;semanal;#', 'C;Con email;;ana@tasvalor.com;1;>=;semanal;#'].join('\n');
+    const ctx = metricCtx({ defaultOwnerUserId: 'user-default' });
+
+    const noColumn = validateMetricImport(csv, ctx);
+    const mixed = validateMetricImport(withEmailColumn, ctx);
+
+    expect(noColumn.ok && noColumn.rows[0].ownerUserId).toBe('user-default');
+    expect(mixed.ok && mixed.rows.map((row) => row.ownerUserId)).toEqual(['user-default', 'user-ana']);
+  });
+
+  it('reports rows without email when no default owner was chosen', () => {
+    const result = validateMetricImport([HEADER, 'B;Vacío;;;1;>=;semanal;#'].join('\n'), metricCtx());
+    expect(result).toEqual({
+      ok: false,
+      errors: [{ row: 2, field: 'responsable_email', message: expect.stringContaining('Sin responsable') }],
     });
   });
 

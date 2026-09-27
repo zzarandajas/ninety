@@ -31,11 +31,12 @@ export const METRIC_TEMPLATE_HEADER = [
 
 export const ENTRY_TEMPLATE_HEADER = ['codigo', 'periodo', 'valor'];
 
-export function buildMetricsTemplate(ownerEmail = 'responsable@empresa.com'): string {
+/** `responsable_email` left blank: the owner is chosen in the upload dialog (the column can still override per row). */
+export function buildMetricsTemplate(): string {
   return toCsv([
     METRIC_TEMPLATE_HEADER,
-    ['VENTAS_SEM', 'Facturación semanal', 'Importe facturado según ERP', ownerEmail, '25000', '>=', 'semanal', '€'],
-    ['INCIDENCIAS_MES', 'Incidencias abiertas', '', ownerEmail, '5', '<=', 'mensual', '#'],
+    ['VENTAS_SEM', 'Facturación semanal', 'Importe facturado según ERP', '', '25000', '>=', 'semanal', '€'],
+    ['INCIDENCIAS_MES', 'Incidencias abiertas', '', '', '5', '<=', 'mensual', '#'],
   ]);
 }
 

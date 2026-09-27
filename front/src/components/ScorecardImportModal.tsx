@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { ApiError } from '../lib/apiClient';
 import { scorecardApi, type ImportRowError, type ScorecardMetric } from '../lib/scorecardApi';
 import { buildEntriesTemplate, buildMetricsTemplate, downloadCsv } from '../lib/scorecardCsv';
+import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
+import { UserSelect } from './UserSelect';
 
 export type ScorecardImportMode = 'metrics' | 'entries';
 
@@ -12,8 +14,10 @@ export interface ScorecardImportModalProps {
   open: boolean;
   mode: ScorecardImportMode;
   metrics: ScorecardMetric[];
-  /** Email pre-filled as owner in the metrics template example rows. */
-  defaultOwnerEmail?: string;
+  /** Tenant members, for the owner picker in `metrics` mode. */
+  members?: TenantMember[];
+  /** Owner pre-selected in `metrics` mode (usually the current user), if they are a member. */
+  defaultOwnerUserId?: string;
   onClose: () => void;
   onImported: () => void;
 }
@@ -36,7 +40,11 @@ const COPY: Record<
       { column: 'codigo', required: true, format: 'Único. A-Z, 0-9, "_" y "-". Ej. VENTAS_SEM' },
       { column: 'nombre', required: true, format: 'Texto libre' },
       { column: 'descripcion', required: false, format: 'Texto libre' },
-      { column: 'responsable_email', required: true, format: 'Email de un miembro de la organización' },
+      {
+        column: 'responsable_email',
+        required: false,
+        format: 'Opcional. Si lo rellenas, esa fila se asigna a ese miembro en vez de al responsable elegido abajo',
+      },
       { column: 'objetivo', required: true, format: 'Número. Coma o punto decimal' },
       { column: 'comparacion', required: true, format: '>=, <= o =' },
       { column: 'frecuencia', required: true, format: 'semanal o mensual' },
@@ -96,7 +104,8 @@ export function ScorecardImportModal({
   open,
   mode,
   metrics,
-  defaultOwnerEmail,
+  members = [],
+  defaultOwnerUserId,
   onClose,
   onImported,
 }: ScorecardImportModalProps) {
@@ -105,23 +114,28 @@ export function ScorecardImportModal({
   const [importing, setImporting] = useState(false);
   const [errors, setErrors] = useState<KeyedRowError[] | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [ownerUserId, setOwnerUserId] = useState<string | undefined>(() =>
+    members.some((member) => member.userId === defaultOwnerUserId) ? defaultOwnerUserId : undefined
+  );
+  const needsOwner = mode === 'metrics' && !ownerUserId;
+  const uploadStep = mode === 'metrics' ? 3 : 2;
 
   const metricsWithoutCode = mode === 'entries' ? metrics.filter((m) => m.isActive && !m.code).length : 0;
 
   function handleDownload() {
-    const content = mode === 'metrics' ? buildMetricsTemplate(defaultOwnerEmail) : buildEntriesTemplate(metrics);
+    const content = mode === 'metrics' ? buildMetricsTemplate() : buildEntriesTemplate(metrics);
     downloadCsv(copy.filename, content);
   }
 
   async function handleImport() {
-    if (!file) return;
+    if (!file || needsOwner) return;
     setImporting(true);
     setErrors(null);
     setFailure(null);
     try {
       const csv = await readFileText(file);
       if (mode === 'metrics') {
-        const { created } = await scorecardApi.importMetrics(csv);
+        const { created } = await scorecardApi.importMetrics(csv, ownerUserId);
         message.success(copy.success(created));
       } else {
         const { upserted } = await scorecardApi.importEntries(csv);
@@ -193,9 +207,28 @@ export function ScorecardImportModal({
           )}
         </section>
 
-        <section aria-labelledby="import-step-2">
-          <Typography.Text strong id="import-step-2" style={{ display: 'block', marginBottom: 8 }}>
-            2. Sube el fichero CSV
+        {mode === 'metrics' && (
+          <section aria-labelledby="import-step-owner">
+            <Typography.Text strong id="import-step-owner" style={{ display: 'block', marginBottom: 8 }}>
+              2. ¿A qué responsable se asignan las métricas?
+            </Typography.Text>
+            <UserSelect
+              ariaLabel="Responsable de las métricas"
+              placeholder="Seleccionar miembro"
+              members={members}
+              value={ownerUserId}
+              onChange={setOwnerUserId}
+              style={{ width: '100%', maxWidth: 360 }}
+            />
+            <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+              Se aplica a todas las filas con <Typography.Text code>responsable_email</Typography.Text> vacío.
+            </Typography.Text>
+          </section>
+        )}
+
+        <section aria-labelledby="import-step-upload">
+          <Typography.Text strong id="import-step-upload" style={{ display: 'block', marginBottom: 8 }}>
+            {uploadStep}. Sube el fichero CSV
           </Typography.Text>
           <Upload.Dragger
             accept=".csv,text/csv"
@@ -257,7 +290,7 @@ export function ScorecardImportModal({
               icon={<CloudUploadOutlined />}
               onClick={handleImport}
               loading={importing}
-              disabled={!file}
+              disabled={!file || needsOwner}
             >
               Importar
             </Button>
