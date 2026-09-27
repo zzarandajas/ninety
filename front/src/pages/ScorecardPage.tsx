@@ -286,7 +286,6 @@ export function ScorecardPage() {
           defaultOwnerUserId={currentUserId}
           onClose={() => setImportMode(null)}
           onImported={() => {
-            setImportMode(null);
             scorecardApi.listMetrics(showInactive ? {} : { isActive: true }).then(setMetrics).catch(() => { });
             scorecardApi.listEntries(52).then(setEntries).catch(() => { });
           }}

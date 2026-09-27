@@ -59,9 +59,10 @@ describe('ScorecardImportModal', () => {
 
   it('keeps Importar disabled until a file is chosen, then sends its text and calls onImported', async () => {
     const { scorecardApi } = await import('../lib/scorecardApi');
-    vi.mocked(scorecardApi.importEntries).mockResolvedValue({ upserted: 1 });
+    vi.mocked(scorecardApi.importEntries).mockResolvedValue({ upserted: 1, skipped: [] });
     const onImported = vi.fn();
-    render(<ScorecardImportModal open mode="entries" metrics={[metric]} onClose={vi.fn()} onImported={onImported} />);
+    const onClose = vi.fn();
+    render(<ScorecardImportModal open mode="entries" metrics={[metric]} onClose={onClose} onImported={onImported} />);
 
     const importButton = screen.getByRole('button', { name: /importar$/i });
     expect(importButton).toBeDisabled();
@@ -72,6 +73,47 @@ describe('ScorecardImportModal', () => {
 
     await waitFor(() => expect(scorecardApi.importEntries).toHaveBeenCalledWith('codigo;periodo;valor\nVENTAS;2026-09-21;5'));
     expect(onImported).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('stays open listing skipped unknown codes (with rows) after a partial import', async () => {
+    const { scorecardApi } = await import('../lib/scorecardApi');
+    vi.mocked(scorecardApi.importEntries).mockResolvedValue({
+      upserted: 3,
+      skipped: [
+        { code: 'ERP_OTRO', rows: [4, 7] },
+        { code: 'NO_SEGUIDA', rows: [9] },
+      ],
+    });
+    const onImported = vi.fn();
+    const onClose = vi.fn();
+    render(<ScorecardImportModal open mode="entries" metrics={[metric]} onClose={onClose} onImported={onImported} />);
+
+    await uploadFile(csvFile('codigo;periodo;valor'));
+    await userEvent.click(screen.getByRole('button', { name: /importar$/i }));
+
+    expect(await screen.findByText(/3 valores importados\. se han ignorado 2 códigos desconocidos/i)).toBeInTheDocument();
+    expect(screen.getByText('ERP_OTRO')).toBeInTheDocument();
+    expect(screen.getByText('filas 4, 7')).toBeInTheDocument();
+    expect(screen.getByText('fila 9')).toBeInTheDocument();
+    expect(onImported).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole('button', { name: /cerrar/i }));
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('does not refresh the grid when every row was skipped', async () => {
+    const { scorecardApi } = await import('../lib/scorecardApi');
+    vi.mocked(scorecardApi.importEntries).mockResolvedValue({ upserted: 0, skipped: [{ code: 'X', rows: [2] }] });
+    const onImported = vi.fn();
+    render(<ScorecardImportModal open mode="entries" metrics={[metric]} onClose={vi.fn()} onImported={onImported} />);
+
+    await uploadFile(csvFile('codigo;periodo;valor'));
+    await userEvent.click(screen.getByRole('button', { name: /importar$/i }));
+
+    expect(await screen.findByText(/no se ha importado ningún valor/i)).toBeInTheDocument();
+    expect(onImported).not.toHaveBeenCalled();
   });
 
   it('shows per-row errors returned by the server and does not call onImported', async () => {

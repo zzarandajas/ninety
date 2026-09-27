@@ -198,10 +198,35 @@ describe('validateEntryImport', () => {
         { metricId: 'metric-weekly', periodStart: new Date('2026-09-21T00:00:00.000Z'), actualValue: 1500.25 },
         { metricId: 'metric-monthly', periodStart: new Date('2026-08-01T00:00:00.000Z'), actualValue: 2 },
       ],
+      skipped: [],
     });
   });
 
-  it('reports unknown codes, bad values, period/frequency mismatches and duplicates within the file', () => {
+  it('skips whole rows with unknown codes (even with invalid values) and reports them grouped by code', () => {
+    const csv = [
+      'codigo;periodo;valor',
+      'VENTAS;2026-09-21;5',
+      'ERP_OTRO;2026-09-21;1',
+      'erp_otro;basura;no-numero',
+      'NO_SEGUIDA;2026-09;3',
+    ].join('\n');
+
+    expect(validateEntryImport(csv, ctx)).toEqual({
+      ok: true,
+      rows: [{ metricId: 'metric-weekly', periodStart: new Date('2026-09-21T00:00:00.000Z'), actualValue: 5 }],
+      skipped: [
+        { code: 'ERP_OTRO', rows: [3, 4] },
+        { code: 'NO_SEGUIDA', rows: [5] },
+      ],
+    });
+  });
+
+  it('still rejects the whole file for errors in known metrics, even if other rows are skipped', () => {
+    const result = validateEntryImport('codigo;periodo;valor\nERP_OTRO;2026-09-21;1\nVENTAS;2026-09-21;x', ctx);
+    expect(result).toEqual({ ok: false, errors: [{ row: 3, field: 'valor', message: expect.any(String) }] });
+  });
+
+  it('reports empty codes, bad values, period/frequency mismatches and duplicates within the file', () => {
     const csv = [
       'codigo;periodo;valor',
       'OTRA;2026-09-21;1',
@@ -216,13 +241,12 @@ describe('validateEntryImport', () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.errors.map((e) => [e.row, e.field])).toEqual([
-      [2, 'codigo'],
       [3, 'valor'],
       [3, 'periodo'],
       [5, 'periodo'],
       [6, 'codigo'],
     ]);
-    expect(result.errors[2].message).toContain('semanal');
-    expect(result.errors[3].message).toContain('fila 4');
+    expect(result.errors[1].message).toContain('semanal');
+    expect(result.errors[2].message).toContain('fila 4');
   });
 });

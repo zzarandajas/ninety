@@ -60,6 +60,16 @@ export interface MetricImportContext {
   defaultOwnerUserId?: string;
 }
 
+/** Codes in a values file that match no metric of the tenant: skipped, not an error. */
+export interface SkippedCode {
+  code: string;
+  rows: number[];
+}
+
+export type EntryImportResult =
+  | { ok: true; rows: EntryImportRow[]; skipped: SkippedCode[] }
+  | { ok: false; errors: ImportError[] };
+
 export interface EntryImportContext {
   /** upper-cased code → metric */
   metricsByCode: Map<string, { id: string; frequency: MetricFrequency }>;
@@ -231,13 +241,19 @@ export function validateMetricImport(csv: string, ctx: MetricImportContext): Imp
   return finish(result, errors);
 }
 
-export function validateEntryImport(csv: string, ctx: EntryImportContext): ImportResult<EntryImportRow> {
+/**
+ * Rows whose code matches no metric of the tenant (ERP exports usually carry more
+ * indicators than the ones tracked in EOS) are skipped as a whole and reported in
+ * `skipped`; every other problem still rejects the entire file.
+ */
+export function validateEntryImport(csv: string, ctx: EntryImportContext): EntryImportResult {
   const table = readTable(csv, ENTRY_IMPORT_COLUMNS);
   if (Array.isArray(table)) return { ok: false, errors: table };
 
   const errors: ImportError[] = [];
   const result: EntryImportRow[] = [];
   const seen = new Map<string, number>();
+  const skipped = new Map<string, number[]>();
 
   for (const row of table.rows) {
     const get = cellGetter(table, row);
@@ -246,8 +262,11 @@ export function validateEntryImport(csv: string, ctx: EntryImportContext): Impor
 
     const code = normalizeCode(get('codigo'));
     const metric = code ? ctx.metricsByCode.get(code) : undefined;
+    if (code && !metric) {
+      skipped.set(code, [...(skipped.get(code) ?? []), row.line]);
+      continue;
+    }
     if (!code) fail('codigo', 'El código es obligatorio');
-    else if (!metric) fail('codigo', `No existe ninguna métrica con código "${code}"`);
 
     const actualValue = parseDecimal(get('valor'));
     if (actualValue === null) fail('valor', `Valor "${get('valor')}" no es un número válido`);
@@ -283,5 +302,6 @@ export function validateEntryImport(csv: string, ctx: EntryImportContext): Impor
     result.push({ metricId: (metric as { id: string }).id, periodStart: periodStart as Date, actualValue: actualValue as number });
   }
 
-  return finish(result, errors);
+  if (errors.length > 0) return { ok: false, errors: errors.slice(0, MAX_IMPORT_ERRORS) };
+  return { ok: true, rows: result, skipped: [...skipped].map(([code, rows]) => ({ code, rows })) };
 }

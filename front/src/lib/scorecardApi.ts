@@ -41,6 +41,12 @@ export interface CreateMetricPayload {
 
 export type UpdateMetricPayload = Partial<Omit<CreateMetricPayload, 'description'>> & { description?: string | null };
 
+/** Codes in a values file that match no metric of the tenant; those rows were skipped. */
+export interface SkippedCode {
+  code: string;
+  rows: number[];
+}
+
 export interface ImportRowError {
   row: number;
   field?: string;
@@ -75,7 +81,7 @@ export const scorecardApi = {
     }),
 
   importEntries: (csv: string) =>
-    apiFetch<{ upserted: number }>('/scorecard/entries/import', { method: 'POST', body: JSON.stringify({ csv }) }),
+    apiFetch<{ upserted: number; skipped: SkippedCode[] }>('/scorecard/entries/import', { method: 'POST', body: JSON.stringify({ csv }) }),
 
   listEntries: (weeks?: number) => apiFetch<ScorecardEntry[]>(`/scorecard/entries${buildQuery({ weeks })}`),
 

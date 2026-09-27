@@ -32,6 +32,7 @@ Valores — `codigo;periodo;valor`
 - Métrica semanal: `periodo` fecha `AAAA-MM-DD` (o `DD/MM/AAAA`), se normaliza al lunes de esa semana (UTC).
 - Métrica mensual: `AAAA-MM` (o una fecha, se normaliza al día 1).
 - `valor`: número, coma o punto decimal.
+- Código que no existe en el tenant → la fila se ignora (no es error) y se informa en `skipped: [{ code, rows }]`; el modal lo lista.
 - Mismo código+periodo repetido en el fichero → error. Si ya hay valor guardado, se sobrescribe (upsert).
 - La plantilla se descarga prerrellenada con los códigos de las métricas activas y el periodo actual.
 

@@ -16,7 +16,7 @@ la grid). Todas las rutas requieren `Authorization: Bearer <token>` y
 - `PUT /scorecard/entries` — upsert de una celda. Body: `{ metricId, periodStart, actualValue }`. `enteredByUserId` se toma siempre de `request.user.userId`, nunca del body. 404 si `metricId` no existe en el tenant.
 
 - `POST /scorecard/metrics/import` — alta masiva desde CSV. Body `{ csv, ownerUserId? }`. 201 `{ created }`. `ownerUserId` (el responsable elegido en el modal) debe ser miembro activo del tenant (400 si no).
-- `POST /scorecard/entries/import` — carga masiva de valores desde CSV. Body `{ csv }`. 200 `{ upserted }`.
+- `POST /scorecard/entries/import` — carga masiva de valores desde CSV. Body `{ csv }`. 200 `{ upserted, skipped: [{ code, rows }] }`.
 
 ## Importación CSV (alta masiva y valores)
 
@@ -40,13 +40,18 @@ Spec: `docs/superpowers/specs/2026-09-27-scorecard-import-design.md`.
   Código ya existente en el tenant o repetido en el fichero → error.
 - **Valores** — columnas `codigo, periodo, valor`. La métrica se busca por
   `code` **solo entre las métricas del tenant activo** (un código de Cionet es
-  "desconocido" en Tasvalor). Semanal: fecha `AAAA-MM-DD` o `DD/MM/AAAA`,
+  "desconocido" en Tasvalor). **Códigos desconocidos no son error:** la fila
+  entera se ignora (sin validar periodo/valor) y se devuelve en `skipped`
+  agrupada por código con sus líneas — los exports del ERP suelen traer más
+  indicadores de los que se siguen en EOS. El resto de errores (código vacío,
+  valor/periodo inválido en una métrica conocida, duplicados) siguen rechazando
+  el fichero entero. El modal muestra los códigos ignorados y se queda abierto. Semanal: fecha `AAAA-MM-DD` o `DD/MM/AAAA`,
   normalizada al lunes UTC. Mensual: `AAAA-MM`, `MM/AAAA` o fecha, normalizada
   al día 1. Valor con coma o punto decimal (`1.234,5` válido). Mismo
   código+periodo dos veces en el fichero → error; si ya hay valor guardado se
   sobrescribe (upsert).
-- Métricas sin `code` no pueden recibir valores por importación: hay que
-  asignarles código en su ficha.
+- Métricas sin `code` no pueden recibir valores por importación (sus filas
+  saldrían como ignoradas): hay que asignarles código en su ficha.
 
 ## Decimal → number
 

@@ -182,7 +182,10 @@ export default async function scorecardRoutes(app: FastifyInstance): Promise<voi
       return reply.code(400).send({ error: 'El fichero tiene errores, no se ha importado nada', errors: result.errors });
     }
 
-    const upserted = await new ScorecardEntryRepository(tenantId).upsertMany(result.rows, request.user.userId);
+    const upserted = result.rows.length
+      ? await new ScorecardEntryRepository(tenantId).upsertMany(result.rows, request.user.userId)
+      : 0;
+    if (upserted === 0) return { upserted, skipped: result.skipped };
     await publishTenantEvent({
       type: 'ENTITY_CHANGED',
       entity: 'scorecard',
@@ -191,7 +194,7 @@ export default async function scorecardRoutes(app: FastifyInstance): Promise<voi
       tenantId,
       senderUserId: request.user.userId,
     });
-    return { upserted };
+    return { upserted, skipped: result.skipped };
   });
 
   app.put('/entries', { preHandler: requireTenant(app) }, async (request, reply) => {

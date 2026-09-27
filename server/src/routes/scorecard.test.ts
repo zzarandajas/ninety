@@ -319,19 +319,20 @@ describe('scorecard routes', () => {
       await app.close();
     });
 
-    it('POST /scorecard/entries/import only resolves codes of the active tenant metrics', async () => {
+    it('POST /scorecard/entries/import only resolves codes of the active tenant metrics (others are skipped)', async () => {
       const { prisma } = await import('../lib/prisma.js');
       vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
-      // A Cionet metric code is simply not in this tenant's list → unknown code.
+      // A Cionet metric code is simply not in this tenant's list → unknown code → skipped, never written.
       vi.mocked(prisma.scorecardMetric.findMany).mockResolvedValue([{ ...baseMetricRaw, code: 'LEADS' }] as never);
 
       const csv = 'codigo;periodo;valor\nCIONET_VENTAS;2026-09-21;5';
       const { app, headers } = await authedApp();
       const response = await app.inject({ method: 'POST', url: '/scorecard/entries/import', headers, payload: { csv } });
 
-      expect(response.statusCode).toBe(400);
+      expect(response.statusCode).toBe(200);
       expect(prisma.scorecardMetric.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId: 'tenant-1' } }));
-      expect(response.json().errors[0]).toMatchObject({ row: 2, field: 'codigo' });
+      expect(response.json()).toEqual({ upserted: 0, skipped: [{ code: 'CIONET_VENTAS', rows: [2] }] });
+      expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(prisma.scorecardEntry.upsert).not.toHaveBeenCalled();
       await app.close();
     });
@@ -347,7 +348,7 @@ describe('scorecard routes', () => {
       const response = await app.inject({ method: 'POST', url: '/scorecard/entries/import', headers, payload: { csv } });
 
       expect(response.statusCode).toBe(200);
-      expect(response.json()).toEqual({ upserted: 1 });
+      expect(response.json()).toEqual({ upserted: 1, skipped: [] });
       expect(prisma.scorecardEntry.upsert).toHaveBeenCalledWith({
         where: { metricId_periodStart: { metricId: 'metric-1', periodStart: new Date('2026-09-21T00:00:00.000Z') } },
         create: {

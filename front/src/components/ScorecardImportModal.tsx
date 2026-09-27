@@ -2,7 +2,7 @@ import { CloseOutlined, CloudUploadOutlined, DownloadOutlined, FileTextOutlined,
 import { Alert, Button, message, Modal, Space, Table, Tag, Typography, Upload } from 'antd';
 import { useState } from 'react';
 import { ApiError } from '../lib/apiClient';
-import { scorecardApi, type ImportRowError, type ScorecardMetric } from '../lib/scorecardApi';
+import { scorecardApi, type ImportRowError, type ScorecardMetric, type SkippedCode } from '../lib/scorecardApi';
 import { buildEntriesTemplate, buildMetricsTemplate, downloadCsv } from '../lib/scorecardCsv';
 import type { TenantMember } from '../lib/tenantApi';
 import { ModalTitle } from './ModalTitle';
@@ -19,6 +19,7 @@ export interface ScorecardImportModalProps {
   /** Owner pre-selected in `metrics` mode (usually the current user), if they are a member. */
   defaultOwnerUserId?: string;
   onClose: () => void;
+  /** Data changed: refresh the grid. The modal closes itself unless it has a summary to show. */
   onImported: () => void;
 }
 
@@ -114,6 +115,7 @@ export function ScorecardImportModal({
   const [importing, setImporting] = useState(false);
   const [errors, setErrors] = useState<KeyedRowError[] | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [summary, setSummary] = useState<{ upserted: number; skipped: SkippedCode[] } | null>(null);
   const [ownerUserId, setOwnerUserId] = useState<string | undefined>(() =>
     members.some((member) => member.userId === defaultOwnerUserId) ? defaultOwnerUserId : undefined
   );
@@ -132,16 +134,25 @@ export function ScorecardImportModal({
     setImporting(true);
     setErrors(null);
     setFailure(null);
+    setSummary(null);
     try {
       const csv = await readFileText(file);
       if (mode === 'metrics') {
         const { created } = await scorecardApi.importMetrics(csv, ownerUserId);
         message.success(copy.success(created));
-      } else {
-        const { upserted } = await scorecardApi.importEntries(csv);
-        message.success(copy.success(upserted));
+        onImported();
+        onClose();
+        return;
       }
-      onImported();
+      const { upserted, skipped } = await scorecardApi.importEntries(csv);
+      if (upserted > 0) onImported();
+      if (skipped.length === 0) {
+        message.success(copy.success(upserted));
+        onClose();
+        return;
+      }
+      setSummary({ upserted, skipped });
+      setFile(null);
     } catch (e) {
       const rowErrors = rowErrorsFrom(e);
       if (rowErrors) setErrors(rowErrors);
@@ -193,6 +204,7 @@ export function ScorecardImportModal({
           <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
             * Obligatoria. Separador <Typography.Text code>;</Typography.Text> (también se acepta{' '}
             <Typography.Text code>,</Typography.Text>). Si una sola fila tiene errores no se importa nada.
+            {mode === 'entries' && ' Las filas con códigos que no existen aquí se ignoran y se listan al terminar.'}
           </Typography.Text>
           {metricsWithoutCode > 0 && (
             <Alert
@@ -239,6 +251,7 @@ export function ScorecardImportModal({
               setFile(selected);
               setErrors(null);
               setFailure(null);
+              setSummary(null);
               return false;
             }}
           >
@@ -251,6 +264,39 @@ export function ScorecardImportModal({
         </section>
 
         {failure && <Alert type="error" showIcon role="alert" message={failure} />}
+
+        {summary && (
+          <Alert
+            role="status"
+            type={summary.upserted > 0 ? 'warning' : 'error'}
+            showIcon
+            message={
+              summary.upserted > 0
+                ? `${copy.success(summary.upserted)}. Se han ignorado ${summary.skipped.length} ${
+                    summary.skipped.length === 1 ? 'código desconocido' : 'códigos desconocidos'
+                  }`
+                : 'No se ha importado ningún valor: ningún código del fichero existe en esta organización'
+            }
+            description={
+              <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                  No existe ninguna métrica con estos códigos (o no tienen código asignado). Si alguno debería
+                  importarse, créalo con Alta masiva o asígnale el código en su ficha y vuelve a subir el fichero.
+                </Typography.Text>
+                <div style={{ maxHeight: 160, overflowY: 'auto' }}>
+                  {summary.skipped.map((item) => (
+                    <div key={item.code} style={{ display: 'flex', gap: 8, alignItems: 'baseline', marginBottom: 4 }}>
+                      <Tag style={{ fontFamily: 'monospace' }}>{item.code}</Tag>
+                      <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        {item.rows.length === 1 ? 'fila' : 'filas'} {item.rows.join(', ')}
+                      </Typography.Text>
+                    </div>
+                  ))}
+                </div>
+              </Space>
+            }
+          />
+        )}
 
         {errors && (
           <div role="alert">
@@ -282,18 +328,26 @@ export function ScorecardImportModal({
 
         <div className="modal-actions-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
           <Space>
-            <Button icon={<CloseOutlined />} onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button
-              type="primary"
-              icon={<CloudUploadOutlined />}
-              onClick={handleImport}
-              loading={importing}
-              disabled={!file || needsOwner}
-            >
-              Importar
-            </Button>
+            {summary && !file ? (
+              <Button type="primary" icon={<CloseOutlined />} onClick={onClose}>
+                Cerrar
+              </Button>
+            ) : (
+              <>
+                <Button icon={<CloseOutlined />} onClick={onClose}>
+                  Cancelar
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<CloudUploadOutlined />}
+                  onClick={handleImport}
+                  loading={importing}
+                  disabled={!file || needsOwner}
+                >
+                  Importar
+                </Button>
+              </>
+            )}
           </Space>
         </div>
       </Space>
