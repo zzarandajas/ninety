@@ -30,4 +30,25 @@ export class ScorecardEntryRepository {
     });
     return toView(entry);
   }
+
+  /**
+   * Bulk import: upserts every row in one transaction, or none. Callers must have
+   * already checked that each `metricId` belongs to this tenant (the import route
+   * resolves ids from this tenant's metric codes).
+   */
+  async upsertMany(
+    rows: { metricId: string; periodStart: Date; actualValue: number }[],
+    enteredByUserId: string
+  ): Promise<number> {
+    const entries = await prisma.$transaction(
+      rows.map(({ metricId, periodStart, actualValue }) =>
+        prisma.scorecardEntry.upsert({
+          where: { metricId_periodStart: { metricId, periodStart } },
+          create: { tenantId: this.tenantId, metricId, periodStart, actualValue, enteredByUserId },
+          update: { actualValue, enteredByUserId },
+        })
+      )
+    );
+    return entries.length;
+  }
 }

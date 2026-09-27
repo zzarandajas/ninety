@@ -207,6 +207,22 @@ describe('ScorecardPage', () => {
     expect(await screen.findByText('Nueva Métrica Scorecard')).toBeInTheDocument();
   });
 
+  it('opens the CSV import modal from "Alta masiva" and "Importar valores"', async () => {
+    render(
+      <MemoryRouter>
+        <ScorecardPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(screen.getByText('Nº leads cualificados/semana')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: /alta masiva/i }));
+    expect(await screen.findByText('Alta masiva de métricas')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+    await userEvent.click(screen.getByRole('button', { name: /importar valores/i }));
+    expect(await screen.findByText(/se guardan en su semana o mes/i)).toBeInTheDocument();
+  });
+
   it('refetches members when the active tenant changes', async () => {
     const { tenantApi } = await import('../lib/tenantApi');
 

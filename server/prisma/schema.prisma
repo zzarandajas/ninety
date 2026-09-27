@@ -219,6 +219,7 @@ enum MetricFrequency {
 model ScorecardMetric {
   id              String           @id @default(uuid())
   tenantId        String           @map("tenant_id")
+  code            String?
   name            String
   description     String?
   ownerUserId     String           @map("owner_user_id")
@@ -239,6 +240,7 @@ model ScorecardMetric {
   entries   ScorecardEntry[]
 
   @@unique([id, tenantId])
+  @@unique([tenantId, code])
   @@index([tenantId])
   @@map("scorecard_metrics")
 }

@@ -3,6 +3,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 vi.mock('../lib/prisma.js', () => ({
   prisma: {
+    $transaction: vi.fn((operations: Promise<unknown>[]) => Promise.all(operations)),
     scorecardEntry: {
       findMany: vi.fn(),
       upsert: vi.fn(),
@@ -59,5 +60,31 @@ describe('ScorecardEntryRepository', () => {
       update: { actualValue: 12, enteredByUserId: 'user-1' },
     });
     expect(result.actualValue).toBe(12);
+  });
+
+  it('upsertMany runs every tenant-scoped upsert inside a single transaction', async () => {
+    const { prisma } = await import('../lib/prisma.js');
+    vi.mocked(prisma.scorecardEntry.upsert).mockResolvedValue(baseEntryRaw as never);
+
+    const { ScorecardEntryRepository } = await import('./ScorecardEntryRepository.js');
+    const repo = new ScorecardEntryRepository('tenant-1');
+    const count = await repo.upsertMany(
+      [
+        { metricId: 'metric-1', periodStart: new Date('2026-07-13'), actualValue: 1 },
+        { metricId: 'metric-2', periodStart: new Date('2026-07-01'), actualValue: 2 },
+      ],
+      'user-1'
+    );
+
+    expect(count).toBe(2);
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.scorecardEntry.upsert).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(prisma.scorecardEntry.upsert).mock.calls[1][0].create).toEqual({
+      tenantId: 'tenant-1',
+      metricId: 'metric-2',
+      periodStart: new Date('2026-07-01'),
+      actualValue: 2,
+      enteredByUserId: 'user-1',
+    });
   });
 });

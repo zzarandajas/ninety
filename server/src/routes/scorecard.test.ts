@@ -8,7 +8,8 @@ beforeAll(() => {
 
 vi.mock('../lib/prisma.js', () => ({
   prisma: {
-    tenantMembership: { findUnique: vi.fn() },
+    $transaction: vi.fn((operations: Promise<unknown>[]) => Promise.all(operations)),
+    tenantMembership: { findUnique: vi.fn(), findMany: vi.fn() },
     scorecardMetric: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -225,5 +226,113 @@ describe('scorecard routes', () => {
       })
     );
     await app.close();
+  });
+
+  describe('CSV import', () => {
+    const memberRaw = {
+      ...membership,
+      user: { id: 'user-1', fullName: 'Ana', email: 'Ana@Tasvalor.com', avatarUrl: null },
+    };
+
+    it('POST /scorecard/metrics/import creates every row for the tenant and returns 201', async () => {
+      const { prisma } = await import('../lib/prisma.js');
+      vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
+      vi.mocked(prisma.tenantMembership.findMany).mockResolvedValue([memberRaw] as never);
+      vi.mocked(prisma.scorecardMetric.findMany).mockResolvedValue([] as never);
+      vi.mocked(prisma.scorecardMetric.create).mockResolvedValue(baseMetricRaw as never);
+
+      const csv = 'codigo;nombre;responsable_email;objetivo;comparacion;frecuencia;unidad\nLEADS;Leads;ana@tasvalor.com;10;>=;semanal;#';
+      const { app, headers } = await authedApp();
+      const response = await app.inject({ method: 'POST', url: '/scorecard/metrics/import', headers, payload: { csv } });
+
+      expect(response.statusCode).toBe(201);
+      expect(response.json()).toEqual({ created: 1 });
+      expect(prisma.tenantMembership.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { tenantId: 'tenant-1', isActive: true } })
+      );
+      expect(prisma.scorecardMetric.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ tenantId: 'tenant-1', code: 'LEADS', ownerUserId: 'user-1', createdByUserId: 'user-1' }),
+      });
+      await app.close();
+    });
+
+    it('POST /scorecard/metrics/import returns 400 with per-row errors and writes nothing', async () => {
+      const { prisma } = await import('../lib/prisma.js');
+      vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
+      vi.mocked(prisma.tenantMembership.findMany).mockResolvedValue([memberRaw] as never);
+      vi.mocked(prisma.scorecardMetric.findMany).mockResolvedValue([{ ...baseMetricRaw, code: 'LEADS' }] as never);
+
+      const csv = [
+        'codigo;nombre;responsable_email;objetivo;comparacion;frecuencia',
+        'NUEVA;Nueva;ana@tasvalor.com;1;>=;semanal',
+        'LEADS;Leads;ana@tasvalor.com;10;>=;semanal',
+      ].join('\n');
+      const { app, headers } = await authedApp();
+      const response = await app.inject({ method: 'POST', url: '/scorecard/metrics/import', headers, payload: { csv } });
+
+      expect(response.statusCode).toBe(400);
+      expect(response.json().errors).toEqual([{ row: 3, field: 'codigo', message: expect.stringContaining('LEADS') }]);
+      expect(prisma.scorecardMetric.create).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it('POST /scorecard/entries/import only resolves codes of the active tenant metrics', async () => {
+      const { prisma } = await import('../lib/prisma.js');
+      vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
+      // A Cionet metric code is simply not in this tenant's list → unknown code.
+      vi.mocked(prisma.scorecardMetric.findMany).mockResolvedValue([{ ...baseMetricRaw, code: 'LEADS' }] as never);
+
+      const csv = 'codigo;periodo;valor\nCIONET_VENTAS;2026-09-21;5';
+      const { app, headers } = await authedApp();
+      const response = await app.inject({ method: 'POST', url: '/scorecard/entries/import', headers, payload: { csv } });
+
+      expect(response.statusCode).toBe(400);
+      expect(prisma.scorecardMetric.findMany).toHaveBeenCalledWith(expect.objectContaining({ where: { tenantId: 'tenant-1' } }));
+      expect(response.json().errors[0]).toMatchObject({ row: 2, field: 'codigo' });
+      expect(prisma.scorecardEntry.upsert).not.toHaveBeenCalled();
+      await app.close();
+    });
+
+    it('POST /scorecard/entries/import upserts normalized periods with the authenticated user', async () => {
+      const { prisma } = await import('../lib/prisma.js');
+      vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
+      vi.mocked(prisma.scorecardMetric.findMany).mockResolvedValue([{ ...baseMetricRaw, code: 'LEADS' }] as never);
+      vi.mocked(prisma.scorecardEntry.upsert).mockResolvedValue({} as never);
+
+      const csv = 'codigo;periodo;valor\nleads;2026-09-24;7,5';
+      const { app, headers } = await authedApp();
+      const response = await app.inject({ method: 'POST', url: '/scorecard/entries/import', headers, payload: { csv } });
+
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual({ upserted: 1 });
+      expect(prisma.scorecardEntry.upsert).toHaveBeenCalledWith({
+        where: { metricId_periodStart: { metricId: 'metric-1', periodStart: new Date('2026-09-21T00:00:00.000Z') } },
+        create: {
+          tenantId: 'tenant-1',
+          metricId: 'metric-1',
+          periodStart: new Date('2026-09-21T00:00:00.000Z'),
+          actualValue: 7.5,
+          enteredByUserId: 'user-1',
+        },
+        update: { actualValue: 7.5, enteredByUserId: 'user-1' },
+      });
+      await app.close();
+    });
+
+    it('POST /scorecard/metrics normalizes code to upper case and rejects invalid codes', async () => {
+      const { prisma } = await import('../lib/prisma.js');
+      vi.mocked(prisma.tenantMembership.findUnique).mockResolvedValue(membership as never);
+      vi.mocked(prisma.scorecardMetric.create).mockResolvedValue(baseMetricRaw as never);
+      const body = { name: 'Leads', ownerUserId: 'user-1', goalValue: 10, comparison: 'gte', frequency: 'weekly', unit: '#' };
+
+      const { app, headers } = await authedApp();
+      const ok = await app.inject({ method: 'POST', url: '/scorecard/metrics', headers, payload: { ...body, code: ' leads_sem ' } });
+      const bad = await app.inject({ method: 'POST', url: '/scorecard/metrics', headers, payload: { ...body, code: 'con espacio' } });
+
+      expect(ok.statusCode).toBe(201);
+      expect(prisma.scorecardMetric.create).toHaveBeenCalledWith({ data: expect.objectContaining({ code: 'LEADS_SEM' }) });
+      expect(bad.statusCode).toBe(400);
+      await app.close();
+    });
   });
 });

@@ -165,6 +165,7 @@ async function main() {
     const metric = await prisma.scorecardMetric.create({
       data: {
         tenantId: tenant.id,
+        code: 'LEADS_SEM',
         name: 'Nº leads cualificados/semana',
         ownerUserId: owner.id,
         goalValue: 10,

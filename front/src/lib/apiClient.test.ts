@@ -50,6 +50,20 @@ describe('apiFetch', () => {
     await expect(apiFetch('/rocks/missing')).rejects.toThrow(ApiError);
   });
 
+  it('exposes the full JSON error body as ApiError.details', async () => {
+    const body = { error: 'El fichero tiene errores', errors: [{ row: 2, field: 'codigo', message: 'x' }] };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 400, statusText: 'Bad Request', json: () => Promise.resolve(body) })
+    );
+
+    await expect(apiFetch('/scorecard/entries/import')).rejects.toMatchObject({
+      status: 400,
+      message: 'El fichero tiene errores',
+      details: body,
+    });
+  });
+
   it('logs out and redirects to /login on a 401 response', async () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: false,

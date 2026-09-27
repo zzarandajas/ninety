@@ -1,0 +1,269 @@
+import { CloseOutlined, CloudUploadOutlined, DownloadOutlined, FileTextOutlined, InboxOutlined } from '@ant-design/icons';
+import { Alert, Button, message, Modal, Space, Table, Tag, Typography, Upload } from 'antd';
+import { useState } from 'react';
+import { ApiError } from '../lib/apiClient';
+import { scorecardApi, type ImportRowError, type ScorecardMetric } from '../lib/scorecardApi';
+import { buildEntriesTemplate, buildMetricsTemplate, downloadCsv } from '../lib/scorecardCsv';
+import { ModalTitle } from './ModalTitle';
+
+export type ScorecardImportMode = 'metrics' | 'entries';
+
+export interface ScorecardImportModalProps {
+  open: boolean;
+  mode: ScorecardImportMode;
+  metrics: ScorecardMetric[];
+  /** Email pre-filled as owner in the metrics template example rows. */
+  defaultOwnerEmail?: string;
+  onClose: () => void;
+  onImported: () => void;
+}
+
+interface ColumnHelp {
+  column: string;
+  required: boolean;
+  format: string;
+}
+
+const COPY: Record<
+  ScorecardImportMode,
+  { title: string; subtitle: string; filename: string; columns: ColumnHelp[]; success: (n: number) => string }
+> = {
+  metrics: {
+    title: 'Alta masiva de métricas',
+    subtitle: 'Crea varias métricas de golpe a partir de un CSV (por ejemplo, exportado del ERP).',
+    filename: 'plantilla-alta-metricas.csv',
+    columns: [
+      { column: 'codigo', required: true, format: 'Único. A-Z, 0-9, "_" y "-". Ej. VENTAS_SEM' },
+      { column: 'nombre', required: true, format: 'Texto libre' },
+      { column: 'descripcion', required: false, format: 'Texto libre' },
+      { column: 'responsable_email', required: true, format: 'Email de un miembro de la organización' },
+      { column: 'objetivo', required: true, format: 'Número. Coma o punto decimal' },
+      { column: 'comparacion', required: true, format: '>=, <= o =' },
+      { column: 'frecuencia', required: true, format: 'semanal o mensual' },
+      { column: 'unidad', required: false, format: 'Ej. €, %, #. Por defecto #' },
+    ],
+    success: (n) => `${n} ${n === 1 ? 'métrica creada' : 'métricas creadas'}`,
+  },
+  entries: {
+    title: 'Importar valores',
+    subtitle: 'Carga valores semanales y mensuales; se guardan en su semana o mes.',
+    filename: 'plantilla-valores-scorecard.csv',
+    columns: [
+      { column: 'codigo', required: true, format: 'Código de la métrica (ver ficha de la métrica)' },
+      {
+        column: 'periodo',
+        required: true,
+        format: 'Semanal: fecha AAAA-MM-DD o DD/MM/AAAA (se guarda en el lunes de esa semana). Mensual: AAAA-MM',
+      },
+      { column: 'valor', required: true, format: 'Número. Coma o punto decimal. Si ya hay valor, se sobrescribe' },
+    ],
+    success: (n) => `${n} ${n === 1 ? 'valor importado' : 'valores importados'}`,
+  },
+};
+
+const COLUMN_LABELS: Record<string, string> = {
+  codigo: 'Código',
+  nombre: 'Nombre',
+  descripcion: 'Descripción',
+  responsable_email: 'Responsable',
+  objetivo: 'Objetivo',
+  comparacion: 'Comparación',
+  frecuencia: 'Frecuencia',
+  unidad: 'Unidad',
+  periodo: 'Periodo',
+  valor: 'Valor',
+};
+
+function readFileText(file: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(new Error('No se pudo leer el fichero'));
+    reader.readAsText(file, 'utf-8');
+  });
+}
+
+type KeyedRowError = ImportRowError & { key: string };
+
+function rowErrorsFrom(e: unknown): KeyedRowError[] | null {
+  if (!(e instanceof ApiError)) return null;
+  const errors = (e.details as { errors?: unknown } | undefined)?.errors;
+  if (!Array.isArray(errors)) return null;
+  return (errors as ImportRowError[]).map((error, index) => ({ ...error, key: `${error.row}-${error.field ?? ''}-${index}` }));
+}
+
+export function ScorecardImportModal({
+  open,
+  mode,
+  metrics,
+  defaultOwnerEmail,
+  onClose,
+  onImported,
+}: ScorecardImportModalProps) {
+  const copy = COPY[mode];
+  const [file, setFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [errors, setErrors] = useState<KeyedRowError[] | null>(null);
+  const [failure, setFailure] = useState<string | null>(null);
+
+  const metricsWithoutCode = mode === 'entries' ? metrics.filter((m) => m.isActive && !m.code).length : 0;
+
+  function handleDownload() {
+    const content = mode === 'metrics' ? buildMetricsTemplate(defaultOwnerEmail) : buildEntriesTemplate(metrics);
+    downloadCsv(copy.filename, content);
+  }
+
+  async function handleImport() {
+    if (!file) return;
+    setImporting(true);
+    setErrors(null);
+    setFailure(null);
+    try {
+      const csv = await readFileText(file);
+      if (mode === 'metrics') {
+        const { created } = await scorecardApi.importMetrics(csv);
+        message.success(copy.success(created));
+      } else {
+        const { upserted } = await scorecardApi.importEntries(csv);
+        message.success(copy.success(upserted));
+      }
+      onImported();
+    } catch (e) {
+      const rowErrors = rowErrorsFrom(e);
+      if (rowErrors) setErrors(rowErrors);
+      else setFailure(e instanceof Error ? e.message : 'No se pudo importar el fichero');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <Modal
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      width={720}
+      destroyOnHidden
+      title={<ModalTitle icon={<CloudUploadOutlined />} title={copy.title} subtitle={copy.subtitle} />}
+    >
+      <Space direction="vertical" size={20} style={{ width: '100%', marginTop: 16 }}>
+        <section aria-labelledby="import-step-1">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 8 }}>
+            <Typography.Text strong id="import-step-1">
+              1. Descarga la plantilla y rellénala
+            </Typography.Text>
+            <Button icon={<DownloadOutlined />} onClick={handleDownload}>
+              Descargar plantilla
+            </Button>
+          </div>
+          <Table
+            size="small"
+            pagination={false}
+            rowKey="column"
+            dataSource={copy.columns}
+            columns={[
+              {
+                title: 'Columna',
+                dataIndex: 'column',
+                width: 170,
+                render: (column: string, row: ColumnHelp) => (
+                  <Space size={4}>
+                    <Typography.Text code>{column}</Typography.Text>
+                    {row.required && <Typography.Text type="danger" aria-label="obligatoria">*</Typography.Text>}
+                  </Space>
+                ),
+              },
+              { title: 'Formato', dataIndex: 'format' },
+            ]}
+          />
+          <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+            * Obligatoria. Separador <Typography.Text code>;</Typography.Text> (también se acepta{' '}
+            <Typography.Text code>,</Typography.Text>). Si una sola fila tiene errores no se importa nada.
+          </Typography.Text>
+          {metricsWithoutCode > 0 && (
+            <Alert
+              style={{ marginTop: 8 }}
+              type="info"
+              showIcon
+              message={`${metricsWithoutCode} ${
+                metricsWithoutCode === 1 ? 'métrica activa no tiene código' : 'métricas activas no tienen código'
+              }`}
+              description="Solo se pueden importar valores de métricas con código. Asígnalo editando la métrica."
+            />
+          )}
+        </section>
+
+        <section aria-labelledby="import-step-2">
+          <Typography.Text strong id="import-step-2" style={{ display: 'block', marginBottom: 8 }}>
+            2. Sube el fichero CSV
+          </Typography.Text>
+          <Upload.Dragger
+            accept=".csv,text/csv"
+            multiple={false}
+            maxCount={1}
+            showUploadList={false}
+            beforeUpload={(selected) => {
+              setFile(selected);
+              setErrors(null);
+              setFailure(null);
+              return false;
+            }}
+          >
+            <p className="ant-upload-drag-icon">
+              {file ? <FileTextOutlined /> : <InboxOutlined />}
+            </p>
+            <p className="ant-upload-text">{file ? file.name : 'Haz clic o arrastra aquí el fichero .csv'}</p>
+            <p className="ant-upload-hint">{file ? 'Haz clic para elegir otro fichero' : 'Máximo 1 MB / 2.000 filas'}</p>
+          </Upload.Dragger>
+        </section>
+
+        {failure && <Alert type="error" showIcon role="alert" message={failure} />}
+
+        {errors && (
+          <div role="alert">
+            <Alert
+              type="error"
+              showIcon
+              message={`No se ha importado nada: ${errors.length} ${errors.length === 1 ? 'error' : 'errores'} en el fichero`}
+              description="Corrige las filas indicadas y vuelve a subir el fichero."
+              style={{ marginBottom: 8 }}
+            />
+            <Table
+              size="small"
+              rowKey="key"
+              dataSource={errors}
+              pagination={errors.length > 8 ? { pageSize: 8, size: 'small' } : false}
+              columns={[
+                { title: 'Fila', dataIndex: 'row', width: 64 },
+                {
+                  title: 'Columna',
+                  dataIndex: 'field',
+                  width: 130,
+                  render: (field?: string) => (field ? <Tag>{COLUMN_LABELS[field] ?? field}</Tag> : '—'),
+                },
+                { title: 'Error', dataIndex: 'message' },
+              ]}
+            />
+          </div>
+        )}
+
+        <div className="modal-actions-footer" style={{ display: 'flex', justifyContent: 'flex-end' }}>
+          <Space>
+            <Button icon={<CloseOutlined />} onClick={onClose}>
+              Cancelar
+            </Button>
+            <Button
+              type="primary"
+              icon={<CloudUploadOutlined />}
+              onClick={handleImport}
+              loading={importing}
+              disabled={!file}
+            >
+              Importar
+            </Button>
+          </Space>
+        </div>
+      </Space>
+    </Modal>
+  );
+}

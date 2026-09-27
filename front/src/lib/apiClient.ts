@@ -3,7 +3,9 @@ import { useAuthStore } from '../store/authStore';
 export class ApiError extends Error {
   constructor(
     public status: number,
-    message: string
+    message: string,
+    /** Full JSON error body, for endpoints that return structured detail (e.g. per-row import errors). */
+    public details?: unknown
   ) {
     super(message);
   }
@@ -29,7 +31,7 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
         window.location.assign('/login');
       }
     }
-    throw new ApiError(response.status, body.error ?? 'Request failed');
+    throw new ApiError(response.status, body.error ?? 'Request failed', body);
   }
 
   if (response.status === 204) {

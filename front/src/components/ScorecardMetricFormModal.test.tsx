@@ -96,6 +96,26 @@ describe('ScorecardMetricFormModal', () => {
     expect(onSaved).toHaveBeenCalled();
   });
 
+  it('upper-cases the code as the user types and sends it on create', async () => {
+    const { scorecardApi } = await import('../lib/scorecardApi');
+    vi.mocked(scorecardApi.createMetric).mockResolvedValue({ id: 'metric-1' } as never);
+
+    render(<ScorecardMetricFormModal open metric={undefined} members={members} onClose={vi.fn()} onSaved={vi.fn()} />);
+
+    await userEvent.type(screen.getByLabelText(/nombre/i), 'Ventas');
+    await userEvent.type(screen.getByLabelText(/código/i), 'ventas_sem');
+    expect(screen.getByLabelText(/código/i)).toHaveValue('VENTAS_SEM');
+    await userEvent.click(screen.getByRole('combobox', { name: /owner/i }));
+    await userEvent.click(await screen.findByText('Pablo'));
+    await userEvent.type(screen.getByLabelText(/objetivo/i), '10');
+    await userEvent.type(screen.getByLabelText(/unidad/i), '€');
+    await userEvent.click(screen.getByRole('button', { name: /guardar/i }));
+
+    await waitFor(() =>
+      expect(scorecardApi.createMetric).toHaveBeenCalledWith(expect.objectContaining({ code: 'VENTAS_SEM' }))
+    );
+  });
+
   it('does not show a delete button when creating a new metric', () => {
     render(<ScorecardMetricFormModal open metric={undefined} members={members} onClose={vi.fn()} onSaved={vi.fn()} />);
 

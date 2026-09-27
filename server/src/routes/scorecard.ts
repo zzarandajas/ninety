@@ -4,11 +4,21 @@ import { requireTenant } from '../middleware/resolveTenantContext.js';
 import { ScorecardEntryRepository } from '../repositories/ScorecardEntryRepository.js';
 import { ScorecardMetricRepository } from '../repositories/ScorecardMetricRepository.js';
 import { publishTenantEvent } from '../lib/redis.js';
+import { METRIC_CODE_PATTERN, normalizeCode, validateEntryImport, validateMetricImport } from '../lib/scorecardImport.js';
+import { TenantMemberRepository } from '../repositories/TenantMemberRepository.js';
 
 const comparisonSchema = z.enum(['gte', 'lte', 'eq']);
 const frequencySchema = z.enum(['weekly', 'monthly']);
+const codeSchema = z
+  .string()
+  .transform(normalizeCode)
+  .refine((code) => code === '' || METRIC_CODE_PATTERN.test(code), {
+    message: 'Código inválido: solo A-Z, 0-9, "_" y "-" (máx. 40)',
+  })
+  .transform((code) => (code === '' ? null : code));
 
 const createMetricSchema = z.object({
+  code: codeSchema.nullable().optional(),
   name: z.string().min(1),
   description: z.string().optional(),
   ownerUserId: z.string().min(1),
@@ -20,6 +30,7 @@ const createMetricSchema = z.object({
 });
 
 const updateMetricSchema = z.object({
+  code: codeSchema.nullable().optional(),
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
   ownerUserId: z.string().min(1).optional(),
@@ -45,6 +56,14 @@ const upsertEntrySchema = z.object({
   metricId: z.string().min(1),
   periodStart: z.coerce.date(),
   actualValue: z.number(),
+});
+
+// ~1 MB of CSV text; the JSON envelope needs a little headroom over Fastify's 1 MB default.
+const MAX_IMPORT_CSV_LENGTH = 1_000_000;
+const IMPORT_BODY_LIMIT = 2 * 1024 * 1024;
+
+const importSchema = z.object({
+  csv: z.string().min(1, 'El fichero está vacío').max(MAX_IMPORT_CSV_LENGTH, 'El fichero supera 1 MB'),
 });
 
 function weeksAgo(weeks: number): Date {
@@ -73,6 +92,32 @@ export default async function scorecardRoutes(app: FastifyInstance): Promise<voi
       senderUserId: request.user.userId,
     });
     return reply.code(201).send(metric);
+  });
+
+  app.post('/metrics/import', { preHandler: requireTenant(app), bodyLimit: IMPORT_BODY_LIMIT }, async (request, reply) => {
+    const { csv } = importSchema.parse(request.body);
+    const tenantId = request.tenantId as string;
+    const metricRepo = new ScorecardMetricRepository(tenantId);
+
+    const [members, metrics] = await Promise.all([new TenantMemberRepository(tenantId).findAll(), metricRepo.findAll()]);
+    const result = validateMetricImport(csv, {
+      memberIdByEmail: new Map(members.map((member) => [member.email.toLowerCase(), member.userId])),
+      existingCodes: new Set(metrics.flatMap((metric) => (metric.code ? [metric.code] : []))),
+    });
+    if (!result.ok) {
+      return reply.code(400).send({ error: 'El fichero tiene errores, no se ha importado nada', errors: result.errors });
+    }
+
+    const created = await metricRepo.createMany(result.rows, request.user.userId);
+    await publishTenantEvent({
+      type: 'ENTITY_CHANGED',
+      entity: 'scorecard',
+      action: 'create',
+      id: 'import',
+      tenantId,
+      senderUserId: request.user.userId,
+    });
+    return reply.code(201).send({ created: created.length });
   });
 
   app.patch('/metrics/:id', { preHandler: requireTenant(app) }, async (request, reply) => {
@@ -112,6 +157,32 @@ export default async function scorecardRoutes(app: FastifyInstance): Promise<voi
     const { weeks } = listEntriesQuerySchema.parse(request.query);
     const repo = new ScorecardEntryRepository(request.tenantId as string);
     return repo.findAllSince(weeksAgo(weeks));
+  });
+
+  app.post('/entries/import', { preHandler: requireTenant(app), bodyLimit: IMPORT_BODY_LIMIT }, async (request, reply) => {
+    const { csv } = importSchema.parse(request.body);
+    const tenantId = request.tenantId as string;
+
+    const metrics = await new ScorecardMetricRepository(tenantId).findAll();
+    const result = validateEntryImport(csv, {
+      metricsByCode: new Map(
+        metrics.flatMap((metric) => (metric.code ? [[metric.code, { id: metric.id, frequency: metric.frequency }] as const] : []))
+      ),
+    });
+    if (!result.ok) {
+      return reply.code(400).send({ error: 'El fichero tiene errores, no se ha importado nada', errors: result.errors });
+    }
+
+    const upserted = await new ScorecardEntryRepository(tenantId).upsertMany(result.rows, request.user.userId);
+    await publishTenantEvent({
+      type: 'ENTITY_CHANGED',
+      entity: 'scorecard',
+      action: 'update',
+      id: 'import',
+      tenantId,
+      senderUserId: request.user.userId,
+    });
+    return { upserted };
   });
 
   app.put('/entries', { preHandler: requireTenant(app) }, async (request, reply) => {

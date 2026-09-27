@@ -17,6 +17,7 @@ export interface ScorecardMetricFormModalProps {
 }
 
 interface FormValues {
+  code?: string;
   name: string;
   description?: string;
   ownerUserId: string;
@@ -38,7 +39,7 @@ export function ScorecardMetricFormModal({ open, metric, members, onClose, onSav
   useEffect(() => {
     form.setFieldsValue(
       metric
-        ? { ...metric, description: metric.description ?? undefined }
+        ? { ...metric, code: metric.code ?? undefined, description: metric.description ?? undefined }
         : { comparison: 'gte', frequency: 'weekly', isActive: true }
     );
   }, [metric, form]);
@@ -92,9 +93,24 @@ export function ScorecardMetricFormModal({ open, metric, members, onClose, onSav
       destroyOnHidden
     >
       <Form form={form} layout="vertical" onFinish={handleSubmit} style={{ marginTop: 16 }}>
-        <Form.Item name="name" label="Nombre del Indicador" rules={[{ required: true, message: 'Introduce un nombre' }]}>
-          <Input placeholder="Ej. Facturación semanal, Llamadas comercial..." />
-        </Form.Item>
+        <Row gutter={16}>
+          <Col span={16}>
+            <Form.Item name="name" label="Nombre del Indicador" rules={[{ required: true, message: 'Introduce un nombre' }]}>
+              <Input placeholder="Ej. Facturación semanal, Llamadas comercial..." />
+            </Form.Item>
+          </Col>
+          <Col span={8}>
+            <Form.Item
+              name="code"
+              label="Código"
+              tooltip="Identificador para importar valores desde CSV/ERP. Único en la organización."
+              normalize={(value?: string) => value?.toUpperCase()}
+              rules={[{ pattern: /^[A-Z0-9_-]{0,40}$/, message: 'Solo A-Z, 0-9, "_" y "-" (máx. 40)' }]}
+            >
+              <Input placeholder="Ej. VENTAS_SEM" />
+            </Form.Item>
+          </Col>
+        </Row>
 
         <Form.Item name="description" label="Descripción / Detalle">
           <RichTextEditor placeholder="Qué mide este indicador, cómo se calcula, fuente de datos..." />

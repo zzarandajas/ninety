@@ -2,6 +2,7 @@ import * as Icons from '@ant-design/icons';
 import { Button, InputNumber, message, Radio, Space, Switch, Table, Tag, Typography } from 'antd';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Line, LineChart, ResponsiveContainer } from 'recharts';
+import { ScorecardImportModal, type ScorecardImportMode } from '../components/ScorecardImportModal';
 import { ScorecardMetricFormModal } from '../components/ScorecardMetricFormModal';
 import { Template } from '../components/Template';
 import { evaluateGoal } from '../lib/evaluateGoal';
@@ -35,10 +36,12 @@ function trendData(entries: ScorecardEntry[], metricId: string, periods: Date[])
 
 export function ScorecardPage() {
   const activeTenantId = useAuthStore((state) => state.activeTenantId);
+  const currentUserEmail = useAuthStore((state) => state.user?.email);
   const [metrics, setMetrics] = useState<ScorecardMetric[]>([]);
   const [entries, setEntries] = useState<ScorecardEntry[]>([]);
   const [members, setMembers] = useState<TenantMember[]>([]);
   const [modalMetric, setModalMetric] = useState<ScorecardMetric | 'new' | null>(null);
+  const [importMode, setImportMode] = useState<ScorecardImportMode | null>(null);
   const [showInactive, setShowInactive] = useState(false);
   const [frequencyFilter, setFrequencyFilter] = useState<MetricFrequency | 'all'>('all');
   const tableRef = useRef<HTMLDivElement>(null);
@@ -139,6 +142,11 @@ export function ScorecardPage() {
               </Space>
               <Tag color={metric.frequency === 'monthly' ? 'blue' : 'default'} style={{ fontSize: 9, lineHeight: '14px', height: 16 }}>{frequencyLabel}</Tag>
             </div>
+            {metric.code && (
+              <Typography.Text type="secondary" style={{ fontSize: 11, fontFamily: 'monospace' }}>
+                {metric.code}
+              </Typography.Text>
+            )}
             <Typography.Text type="secondary" style={{ fontSize: 11, display: 'block' }}>
               Objetivo: {comparisonLabel} {metric.goalValue} {metric.unit}
             </Typography.Text>
@@ -222,9 +230,17 @@ export function ScorecardPage() {
       icon={<Icons.BarChartOutlined />}
       subtitle="Métricas del cuadro de mando: objetivo, tendencia y avance."
       extra={
-        <Button type="primary" icon={<Icons.PlusOutlined />} onClick={() => setModalMetric('new')}>
-          Nueva métrica
-        </Button>
+        <Space wrap>
+          <Button icon={<Icons.CloudUploadOutlined />} onClick={() => setImportMode('entries')}>
+            Importar valores
+          </Button>
+          <Button icon={<Icons.AppstoreAddOutlined />} onClick={() => setImportMode('metrics')}>
+            Alta masiva
+          </Button>
+          <Button type="primary" icon={<Icons.PlusOutlined />} onClick={() => setModalMetric('new')}>
+            Nueva métrica
+          </Button>
+        </Space>
       }
     >
 
@@ -260,6 +276,21 @@ export function ScorecardPage() {
 
       </CustomSection>
 
+
+      {importMode && (
+        <ScorecardImportModal
+          open
+          mode={importMode}
+          metrics={metrics}
+          defaultOwnerEmail={currentUserEmail}
+          onClose={() => setImportMode(null)}
+          onImported={() => {
+            setImportMode(null);
+            scorecardApi.listMetrics(showInactive ? {} : { isActive: true }).then(setMetrics).catch(() => { });
+            scorecardApi.listEntries(52).then(setEntries).catch(() => { });
+          }}
+        />
+      )}
 
       {modalMetric && (
         <ScorecardMetricFormModal

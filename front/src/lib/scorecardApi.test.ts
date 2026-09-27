@@ -29,6 +29,24 @@ describe('scorecardApi', () => {
     expect(apiFetch).toHaveBeenCalledWith('/scorecard/metrics?isActive=false');
   });
 
+  it('importMetrics / importEntries POST the raw CSV text as JSON', async () => {
+    const { apiFetch } = await import('./apiClient');
+    vi.mocked(apiFetch).mockResolvedValue({});
+
+    const { scorecardApi } = await import('./scorecardApi');
+    await scorecardApi.importMetrics('codigo;nombre');
+    await scorecardApi.importEntries('codigo;periodo;valor');
+
+    expect(apiFetch).toHaveBeenCalledWith('/scorecard/metrics/import', {
+      method: 'POST',
+      body: JSON.stringify({ csv: 'codigo;nombre' }),
+    });
+    expect(apiFetch).toHaveBeenCalledWith('/scorecard/entries/import', {
+      method: 'POST',
+      body: JSON.stringify({ csv: 'codigo;periodo;valor' }),
+    });
+  });
+
   it('listMetrics with no filters calls the bare endpoint', async () => {
     const { apiFetch } = await import('./apiClient');
     vi.mocked(apiFetch).mockResolvedValue([]);

@@ -3,6 +3,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 vi.mock('../lib/prisma.js', () => ({
   prisma: {
+    $transaction: vi.fn((operations: Promise<unknown>[]) => Promise.all(operations)),
     scorecardMetric: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
@@ -136,5 +137,48 @@ describe('ScorecardMetricRepository', () => {
     expect(prisma.scorecardMetric.deleteMany).toHaveBeenCalledWith({ where: { id: 'metric-1', tenantId: 'tenant-1' } });
     expect(removed).toBe(true);
     expect(notRemoved).toBe(false);
+  });
+
+  it('createMany creates every row with tenantId and audit fields inside a single transaction', async () => {
+    const { prisma } = await import('../lib/prisma.js');
+    vi.mocked(prisma.scorecardMetric.create).mockResolvedValue(baseMetricRaw as never);
+
+    const { ScorecardMetricRepository } = await import('./ScorecardMetricRepository.js');
+    const repo = new ScorecardMetricRepository('tenant-1');
+    const input = {
+      code: 'LEADS',
+      name: 'Leads',
+      ownerUserId: 'user-1',
+      goalValue: 10,
+      comparison: 'gte' as const,
+      frequency: 'weekly' as const,
+      unit: '#',
+    };
+    const result = await repo.createMany([input, { ...input, code: 'LEADS_2' }], 'user-9');
+
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(prisma.scorecardMetric.create).toHaveBeenCalledWith({
+      data: { ...input, tenantId: 'tenant-1', createdByUserId: 'user-9', updatedByUserId: 'user-9' },
+    });
+    expect(result).toHaveLength(2);
+    expect(result[0].goalValue).toBe(10);
+  });
+
+  it('create maps a duplicate (tenantId, code) unique violation to a 409 HttpError', async () => {
+    const { prisma } = await import('../lib/prisma.js');
+    const { Prisma } = await import('@prisma/client');
+    vi.mocked(prisma.scorecardMetric.create).mockRejectedValue(
+      new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' })
+    );
+
+    const { ScorecardMetricRepository } = await import('./ScorecardMetricRepository.js');
+    const repo = new ScorecardMetricRepository('tenant-1');
+
+    await expect(
+      repo.create(
+        { code: 'LEADS', name: 'Leads', ownerUserId: 'user-1', goalValue: 1, comparison: 'gte', frequency: 'weekly', unit: '#' },
+        'user-1'
+      )
+    ).rejects.toMatchObject({ statusCode: 409 });
   });
 });

@@ -6,6 +6,7 @@ export type MetricFrequency = 'weekly' | 'monthly';
 export interface ScorecardMetric {
   id: string;
   tenantId: string;
+  code?: string | null;
   name: string;
   description: string | null;
   ownerUserId: string;
@@ -27,6 +28,7 @@ export interface ScorecardEntry {
 }
 
 export interface CreateMetricPayload {
+  code?: string | null;
   name: string;
   description?: string;
   ownerUserId: string;
@@ -38,6 +40,12 @@ export interface CreateMetricPayload {
 }
 
 export type UpdateMetricPayload = Partial<Omit<CreateMetricPayload, 'description'>> & { description?: string | null };
+
+export interface ImportRowError {
+  row: number;
+  field?: string;
+  message: string;
+}
 
 function buildQuery(params: Record<string, string | number | boolean | undefined>): string {
   const search = new URLSearchParams();
@@ -59,6 +67,12 @@ export const scorecardApi = {
     apiFetch<ScorecardMetric>(`/scorecard/metrics/${id}`, { method: 'PATCH', body: JSON.stringify(payload) }),
 
   deleteMetric: (id: string) => apiFetch<void>(`/scorecard/metrics/${id}`, { method: 'DELETE' }),
+
+  importMetrics: (csv: string) =>
+    apiFetch<{ created: number }>('/scorecard/metrics/import', { method: 'POST', body: JSON.stringify({ csv }) }),
+
+  importEntries: (csv: string) =>
+    apiFetch<{ upserted: number }>('/scorecard/entries/import', { method: 'POST', body: JSON.stringify({ csv }) }),
 
   listEntries: (weeks?: number) => apiFetch<ScorecardEntry[]>(`/scorecard/entries${buildQuery({ weeks })}`),
 
